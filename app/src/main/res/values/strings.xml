@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">Streaming radio</string>
+    <string name="channel_description">Contrôles du lecteur</string>
+    <string name="pause">Pause</string>
+    <string name="play">Lecture</string>
+    <string name="playing_error">Erreur de lecture</string>
+</resources>

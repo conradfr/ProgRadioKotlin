@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">Radio streaming</string>
+    <string name="channel_description">Player controls</string>
+    <string name="pause">Pause</string>
+    <string name="play">Play</string>
+    <string name="playing_error">Error</string>
+</resources>
