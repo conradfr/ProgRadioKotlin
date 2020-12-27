@@ -5,28 +5,35 @@
     android:viewportHeight="108">
   <group android:scaleX="0.43578947"
       android:scaleY="0.43578947"
-      android:translateX="8.2421055"
-      android:translateY="5.4639473">
+      android:translateX="-4.9405265"
+      android:translateY="1.2694737">
     <path
-        android:pathData="M61.675,94.28L148.325,94.28A4.3,3.92 0,0 1,152.625 98.2L152.625,146.073A4.3,3.92 0,0 1,148.325 149.993L61.675,149.993A4.3,3.92 0,0 1,57.375 146.073L57.375,98.2A4.3,3.92 0,0 1,61.675 94.28z"
-        android:strokeAlpha="0.98165137"
+        android:pathData="M171.034,168.918C115.472,150.397 115.472,150.397 115.472,150.397"
+        android:strokeLineJoin="miter"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:strokeColor="#2196f3"
+        android:strokeLineCap="butt"/>
+    <path
+        android:pathData="M90.857,96.517L177.506,96.517A4.3,3.92 0,0 1,181.807 100.437L181.807,148.31A4.3,3.92 0,0 1,177.506 152.23L90.857,152.23A4.3,3.92 0,0 1,86.557 148.31L86.557,100.437A4.3,3.92 0,0 1,90.857 96.517z"
+        android:strokeAlpha="0.981651"
         android:strokeWidth="7"
         android:fillColor="#00000000"
         android:strokeColor="#ffffff"/>
     <path
-        android:pathData="M123.785,122.061m-14.791,0a14.791,14.791 0,1 1,29.582 0a14.791,14.791 0,1 1,-29.582 0"
-        android:strokeWidth="6.52204275"
+        android:pathData="M153.307,124.638m-15.875,0a15.875,15.875 0,1 1,31.75 0a15.875,15.875 0,1 1,-31.75 0"
+        android:strokeWidth="7"
         android:fillColor="#00000000"
         android:strokeColor="#ffffff"/>
     <path
-        android:pathData="M144.688,93.902C89.125,75.381 89.125,75.381 89.125,75.381"
+        android:pathData="M173.869,96.139C118.307,77.618 118.307,77.618 118.307,77.618"
         android:strokeLineJoin="miter"
         android:strokeWidth="4"
         android:fillColor="#00000000"
         android:strokeColor="#ffffff"
         android:strokeLineCap="butt"/>
     <path
-        android:pathData="M89.309,75.244m-2.646,0a2.646,2.646 0,1 1,5.292 0a2.646,2.646 0,1 1,-5.292 0"
+        android:pathData="M118.491,77.481m-2.646,0a2.646,2.646 0,1 1,5.292 0a2.646,2.646 0,1 1,-5.292 0"
         android:strokeWidth="0"
         android:fillColor="#ffffff"
         android:strokeColor="#ffffff"/>

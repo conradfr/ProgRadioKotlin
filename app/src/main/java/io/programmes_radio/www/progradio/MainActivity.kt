@@ -54,8 +54,8 @@ class MainActivity : AppCompatActivity() {
         // receiver for vue app update
 //        if (savedInstanceState === null) {
             localManager = LocalBroadcastManager.getInstance(baseContext)
-            filter.addAction("UpdatePlaybackStatus");
-            localManager.registerReceiver(receiver, filter);
+            filter.addAction("UpdatePlaybackStatus")
+        localManager.registerReceiver(receiver, filter)
 //        }
 
         volumeControlStream = AudioManager.STREAM_MUSIC
@@ -63,10 +63,12 @@ class MainActivity : AppCompatActivity() {
         mWebView = WebView(this)
         setContentView(mWebView)
 
-        jsInterface = WebAppInterface(this)
-        mWebView!!.addJavascriptInterface(jsInterface, "Android")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            jsInterface = WebAppInterface(this)
+            mWebView!!.addJavascriptInterface(jsInterface, "Android")
+        }
 
-        mWebView!!.setWebViewClient(object : WebViewClient() {
+        mWebView!!.webViewClient = object : WebViewClient() {
             override fun onReceivedSslError(
                 view: WebView,
                 handler: SslErrorHandler,
@@ -76,27 +78,25 @@ class MainActivity : AppCompatActivity() {
                     handler.proceed() // Ignore SSL certificate errors
                 }
             }
-        })
+        }
 
         // Enable Javascript
-        val webSettings: WebSettings = mWebView!!.getSettings()
+        val webSettings: WebSettings = mWebView!!.settings
         webSettings.javaScriptEnabled = true
 
-        mWebView!!.getSettings().setMediaPlaybackRequiresUserGesture(false)
-        mWebView!!.getSettings().setDomStorageEnabled(true)
-        mWebView!!.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE)
-        mWebView!!.getSettings().setAppCacheEnabled(false)
+        mWebView!!.settings.mediaPlaybackRequiresUserGesture = false
+        mWebView!!.settings.domStorageEnabled = true
+        mWebView!!.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        mWebView!!.settings.setAppCacheEnabled(false)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            mWebView!!.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE)
-        }
+        mWebView!!.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
         if (savedInstanceState === null) {
             // Force links and redirects to open in the WebView instead of in a browser
             if (BuildConfig.DEBUG) {
-                mWebView!!.getSettings().setAppCacheEnabled(false)
+                mWebView!!.settings.setAppCacheEnabled(false)
                 mWebView!!.clearCache(true)
-                mWebView!!.loadUrl(BASE_URL_DEV + "/#/streaming")
+                mWebView!!.loadUrl(BASE_URL_DEV)
 
 //                mWebView!!.loadUrl("https://www.programmes-radio.io")
             } else {

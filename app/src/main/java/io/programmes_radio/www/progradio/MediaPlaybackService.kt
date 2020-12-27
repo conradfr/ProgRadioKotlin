@@ -38,8 +38,10 @@ import java.net.URL
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
+import kotlin.system.exitProcess
 
-private const val MY_MEDIA_ROOT_ID = "media_root_id"
+
+// private const val MY_MEDIA_ROOT_ID = "media_root_id"
 private const val MY_EMPTY_MEDIA_ROOT_ID = "empty_root_id"
 
 private const val CHANNEL_ID = "com.android.progradio.channel_1"
@@ -52,7 +54,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private val intentFilter = IntentFilter(ACTION_AUDIO_BECOMING_NOISY)
 
-    private lateinit var afChangeListener: AudioManager.OnAudioFocusChangeListener
+    private lateinit var afChangeListener: OnAudioFocusChangeListener
     private lateinit var playbackStateListener: PlaybackStateListener
     private val myNoisyAudioStreamReceiver = BecomingNoisyReceiver()
 //    private lateinit var myPlayerNotification: MediaStyleNotification
@@ -67,7 +69,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     inner class BecomingNoisyReceiver : BroadcastReceiver() {
 
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+            if (intent.action == ACTION_AUDIO_BECOMING_NOISY) {
                 this@MediaPlaybackService.callback.onPause()
             }
         }
@@ -114,7 +116,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 false
             )
 
-            player?.setPlayWhenReady(true)
+            player?.playWhenReady = true
         }
 
         afChangeListener =
@@ -172,14 +174,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         clientPackageName: String,
         clientUid: Int,
         rootHints: Bundle?
-    ): MediaBrowserServiceCompat.BrowserRoot {
-        return MediaBrowserServiceCompat.BrowserRoot(MY_EMPTY_MEDIA_ROOT_ID, null)
+    ): BrowserRoot {
+        return BrowserRoot(MY_EMPTY_MEDIA_ROOT_ID, null)
 
     }
 
     override fun onLoadChildren(
         parentMediaId: String,
-        result: MediaBrowserServiceCompat.Result<List<MediaBrowserCompat.MediaItem>>
+        result: Result<List<MediaBrowserCompat.MediaItem>>
     ) {
         //  Browsing not allowed
         if (MY_EMPTY_MEDIA_ROOT_ID == parentMediaId) {
@@ -196,6 +198,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private val callback = object: MediaSessionCompat.Callback() {
         override fun onCustomAction(action: String?, extras: Bundle?) {
+            if (action == "closeApp") {
+                exitProcess(0)
+            }
+
             if (action == "sendUpdate") {
                 val intent = Intent("UpdatePlaybackStatus")
                 intent.putExtra(
@@ -264,12 +270,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     return true
                 }*/
 
-                if (player?.isPlaying == true) {
+                return if (player?.isPlaying == true) {
                     mediaController.transportControls.pause()
-                    return true
+                    true
                 } else {
                     mediaController.transportControls.play()
-                    return true
+                    true
                 }
             }
 
@@ -413,8 +419,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
                     localManager.sendBroadcast(intent)
-                } else {
-                    // not sure
                 }
             }
 
@@ -511,7 +515,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = getString(R.string.channel_name)
             val descriptionText = getString(R.string.channel_description)
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val importance = NotificationManager.IMPORTANCE_LOW
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
             }
@@ -535,43 +539,43 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 MainActivity::class.java
             ) // Here pass your activity where you want to redirect.
 
-            intent.setAction(Intent.ACTION_MAIN);
-            intent.addCategory(Intent.CATEGORY_LAUNCHER);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.action = Intent.ACTION_MAIN
+            intent.addCategory(Intent.CATEGORY_LAUNCHER)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val contentIntent = PendingIntent.getActivity(
                 this, 0, intent, 0
             )
 
             val builder = NotificationCompat.Builder(context, CHANNEL_ID).apply {
                 // Add the metadata for the currently playing track
+                setOnlyAlertOnce(true)
                 setContentTitle(description.title)
                 setContentText(description.subtitle)
                 setSubText(description.description)
-//                setLargeIcon(description.iconBitmap)
-//                setLargeIcon(bitmap)
 
                 // Enable launching the player by clicking the notification
-//                setContentIntent(controller.sessionActivity)
                 setContentIntent(contentIntent)
-
-                // Stop the service when the notification is swiped away
-/*                setDeleteIntent(
-                    MediaButtonReceiver.buildMediaButtonPendingIntent(
-                        context,
-                        PlaybackStateCompat.ACTION_STOP
-                    )
-                )*/
 
                 // Make the transport controls visible on the lockscreen
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
                 // Add an app icon and set its accent color
                 // Be careful about the color
-//            setSmallIcon(R.drawable.notification_icon)
                 setSmallIcon(R.drawable.ic_brand_logo)
                 color = ContextCompat.getColor(context, R.color.primary)
 
                 if (play) {
+                    // Stop the service when the notification is swiped away
+/*                    val closeIntent = Intent(applicationContext, NotificationDismissedReceiver::class.java)
+
+                    setDeleteIntent(
+                        PendingIntent.getBroadcast(
+                            this@MediaPlaybackService,
+                            NOTIFICATION_ID, closeIntent, 0
+                        )
+                    )*/
+                    setOngoing(false)
+
                     // Add a pause button
                     addAction(
                         NotificationCompat.Action(
@@ -608,13 +612,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .setShowActionsInCompactView(0)
 
                         // Add a cancel button
-                        .setShowCancelButton(true)
+/*                        .setShowCancelButton(true)
                         .setCancelButtonIntent(
                             MediaButtonReceiver.buildMediaButtonPendingIntent(
                                 context,
                                 PlaybackStateCompat.ACTION_STOP
                             )
-                        )
+                        )*/
                 )
             }
 
@@ -623,23 +627,27 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 //                val baseUrl = MainActivity.Companion.BASE_URL_PROD
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
                 if (bitmapUrl !== null) {
-                    val currentLoadImageTask = LoadImageTask(builder)
+                    val currentLoadImageTask = LoadImageTask(builder, play)
                     currentLoadImageTask.execute(baseUrl + bitmapUrl)
                 }
             } else {
                 // Display the notification and place the service in the foreground
                 builder.setLargeIcon(null)
                 startForeground(NOTIFICATION_ID, builder.build())
+                if (!play) {
+                    stopForeground(false)
+                }
             }
         }
     }
 
     inner class LoadImageTask(
-        val builder: NotificationCompat.Builder?
+        private val builder: NotificationCompat.Builder?,
+        private val isPlaying: Boolean
     ) :
         AsyncTask<String?, Void?, Bitmap?>() {
             override fun doInBackground(vararg p0: String?): Bitmap? {
-                return if (p0 == null || p0.size == 0) {
+                return if (p0.isEmpty()) {
                     null
                 } else try {
 
@@ -662,6 +670,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     e.printStackTrace()
                     if (builder != null) {
                         startForeground(NOTIFICATION_ID, builder.build())
+                        if (!isPlaying) {
+                            stopForeground(false)
+                        }
                     }
                     null
                 }
@@ -673,6 +684,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 }
                 builder.setLargeIcon(bitmap)
                 startForeground(NOTIFICATION_ID, builder.build())
+                if (!isPlaying) {
+                    stopForeground(false)
+                }
             }
     }
 
@@ -681,8 +695,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         SSLContext.getInstance(protocols[0]).apply {
             val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
                 override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-                override fun checkClientTrusted(certs: Array<X509Certificate>, authType: String) = Unit
-                override fun checkServerTrusted(certs: Array<X509Certificate>, authType: String) = Unit
+                override fun checkClientTrusted(certs: Array<X509Certificate>, authType: String) =
+                    Unit
+
+                override fun checkServerTrusted(certs: Array<X509Certificate>, authType: String) =
+                    Unit
             })
             init(null, trustAllCerts, SecureRandom())
         }.socketFactory

@@ -23,27 +23,31 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
 
     private val connectionCallbacks = object : MediaBrowserCompat.ConnectionCallback() {
         override fun onConnected() {
-            // Get the token for the MediaSession
-            mediaBrowser.sessionToken.also { token ->
+            // cond prevents crash for some reason
+            if(mediaBrowser.isConnected) {
+                // Get the token for the MediaSession
+                mediaBrowser.sessionToken.also { token ->
 
-                // Create a MediaControllerCompat
-                val mediaController = MediaControllerCompat(
-                    context, // Context
-                    token
-                )
+                    // Create a MediaControllerCompat
+                    val mediaController = MediaControllerCompat(
+                        context, // Context
+                        token
+                    )
 
-                // Save the controller
-                val activity = context as Activity
-                MediaControllerCompat.setMediaController(activity, mediaController)
+                    // Save the controller
+                    val activity = context as Activity
+                    MediaControllerCompat.setMediaController(activity, mediaController)
+                }
+
+                // Finish building the UI
+                buildTransportControls()
+
+                if (needUpdate) {
+                    getstate()
+                    needUpdate = false
+                }
             }
 
-            // Finish building the UI
-            buildTransportControls()
-
-            if (needUpdate) {
-                getstate()
-                needUpdate = false
-            }
         }
 
         override fun onConnectionSuspended() {
@@ -136,9 +140,9 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
             val mediaController = MediaControllerCompat.getMediaController(activity)
 
             if (mediaController?.metadata?.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID) == radioCodeName
-                && mediaController?.playbackState.playbackState == PlaybackState.STATE_PLAYING) {
+                && mediaController.playbackState.playbackState == PlaybackState.STATE_PLAYING) {
                 MediaControllerCompat.getMediaController(activity)?.transportControls?.sendCustomAction("updateMetadata", extra)
-                return;
+                return
             }
 
             MediaControllerCompat.getMediaController(activity)?.transportControls?.playFromUri(streamUri, extra)
