@@ -81,13 +81,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Enable Javascript
-        val webSettings: WebSettings = mWebView!!.settings
-        webSettings.javaScriptEnabled = true
+        mWebView!!.settings.javaScriptEnabled = true
 
         mWebView!!.settings.mediaPlaybackRequiresUserGesture = false
         mWebView!!.settings.domStorageEnabled = true
         mWebView!!.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         mWebView!!.settings.setAppCacheEnabled(false)
+        mWebView!!.settings.userAgentString = mWebView!!.settings.userAgentString + " progradio";
 
         mWebView!!.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
