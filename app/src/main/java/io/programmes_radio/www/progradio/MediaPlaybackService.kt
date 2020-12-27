@@ -38,7 +38,6 @@ import java.net.URL
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
-import kotlin.system.exitProcess
 
 
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
@@ -135,12 +134,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 //                        play()
                     }
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        player?.pause()
+                        this@MediaPlaybackService.callback.onPause()
 //                        player?.reset()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                         // Temporary loss of audio focus - expect to get it back - you can keep your resources around
-                        player?.pause()
+                        this@MediaPlaybackService.callback.onPause()
                     }
 /*                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Log.e(
                         TAG,
@@ -198,10 +197,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private val callback = object: MediaSessionCompat.Callback() {
         override fun onCustomAction(action: String?, extras: Bundle?) {
-            if (action == "closeApp") {
-                exitProcess(0)
-            }
-
             if (action == "sendUpdate") {
                 val intent = Intent("UpdatePlaybackStatus")
                 intent.putExtra(
