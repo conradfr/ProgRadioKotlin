@@ -9,5 +9,5 @@ Overview
 
 Implements a MediaPlayer foreground service and a webview loading https://www.programmes-radio.com.
 
-- Communication between the app and the website goes both way to maintain a synchronized state for the media player
+- Communication between the app and the website goes both ways to maintain a synchronized state for the media player
 - The website is aware of the Android app and bypass its own player.
