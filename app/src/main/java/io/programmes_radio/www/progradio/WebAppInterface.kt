@@ -114,8 +114,8 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
         }*/
 
         // Display the initial state
-        val metadata = mediaController.metadata
-        val pbState = mediaController.playbackState
+//        val metadata = mediaController.metadata
+//        val pbState = mediaController.playbackState
 
         // Register a Callback to stay in sync
         mediaController.registerCallback(controllerCallback)

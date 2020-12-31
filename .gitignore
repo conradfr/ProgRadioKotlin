@@ -13,3 +13,5 @@
 .externalNativeBuild
 .cxx
 /work
+
+app/src/main/res/xml/global_tracker.xml

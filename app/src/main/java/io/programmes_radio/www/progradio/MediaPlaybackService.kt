@@ -32,13 +32,14 @@ import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import com.google.android.exoplayer2.*
+import com.google.android.gms.analytics.HitBuilders.EventBuilder
+import com.google.android.gms.analytics.Tracker
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
-
 
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
 private const val MY_EMPTY_MEDIA_ROOT_ID = "empty_root_id"
@@ -47,6 +48,8 @@ private const val CHANNEL_ID = "com.android.progradio.channel_1"
 private const val NOTIFICATION_ID = 666
 
 class MediaPlaybackService : MediaBrowserServiceCompat() {
+
+    private var mTracker: Tracker? = null
 
     private var mediaSession: MediaSessionCompat? = null
     private lateinit var stateBuilder: PlaybackStateCompat.Builder
@@ -81,6 +84,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     override fun onCreate() {
         super.onCreate()
+
+        val application: ProgRadioApplication = applicationContext as ProgRadioApplication
+        mTracker = application.getDefaultTracker()
 
         createNotificationChannel()
         localManager = LocalBroadcastManager.getInstance(baseContext)
@@ -339,6 +345,17 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .build()
                 )
 
+                mTracker?.send(
+                    EventBuilder()
+                        .setCategory("android")
+                        .setAction("play")
+                        .setValue(3)
+                        .setLabel(extras?.getString(
+                            MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                        ))
+                        .build()
+                )
+
                 // Register BECOME_NOISY BroadcastReceiver
                 registerReceiver(myNoisyAudioStreamReceiver, intentFilter)
 
@@ -398,6 +415,18 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
 
                 if (uri !== null) {
+
+                    mTracker?.send(
+                        EventBuilder()
+                            .setCategory("android")
+                            .setAction("play")
+                            .setValue(3)
+                            .setLabel(mediaSession?.controller?.metadata?.getString(
+                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                            ))
+                            .build()
+                    )
+
                     val mediaItem: MediaItem = MediaItem.fromUri(uri)
                     player?.setMediaItem(mediaItem)
                     player?.prepare()
@@ -423,6 +452,17 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            if (player?.isPlaying == true) {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                // Update metadata and state
+
+               mTracker?.send(
+                   EventBuilder()
+                       .setCategory("android")
+                       .setAction("pause")
+                       .setValue(1)
+                       .setLabel(mediaSession?.controller?.metadata?.getString(
+                           MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                       ))
+                       .build()
+               )
 
                val radioCodeName = mediaSession?.controller?.metadata?.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)
 
@@ -457,6 +497,17 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             // stop the player (custom call)
             player?.stop()
+
+            mTracker?.send(
+                EventBuilder()
+                    .setCategory("android")
+                    .setAction("pause")
+                    .setValue(1)
+                    .setLabel(mediaSession?.controller?.metadata?.getString(
+                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                    ))
+                    .build()
+            )
 
             val intent = Intent("UpdatePlaybackStatus")
             intent.putExtra("radioCodeName", "rtl")
@@ -520,7 +571,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             notificationManager.createNotificationChannel(channel)
         }
     }
-
 
     private fun buildNotification(context: Context, play: Boolean) {
         // Get the session's metadata
@@ -606,7 +656,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .setMediaSession(mediaSession?.sessionToken)
                         .setShowActionsInCompactView(0)
 
-                        // Add a cancel button
+                    // Add a cancel button
 /*                        .setShowCancelButton(true)
                         .setCancelButtonIntent(
                             MediaButtonReceiver.buildMediaButtonPendingIntent(

@@ -15,8 +15,8 @@ android {
         applicationId "io.programmes_radio.www.progradio"
         minSdkVersion 24
         targetSdkVersion 29
-        versionCode 12
-        versionName "2.0 beta5"
+        versionCode 13
+        versionName "2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -43,4 +43,5 @@ dependencies {
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
     implementation 'com.google.android.exoplayer:exoplayer:2.12.2'
     implementation 'com.google.android.exoplayer:extension-mediasession:2.12.2'
+    implementation 'com.google.android.gms:play-services-analytics:17.0.0'
 }

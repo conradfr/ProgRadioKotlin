@@ -19,7 +19,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val BASE_URL_PROD = "https://www.programmes-radio.io"
+        const val BASE_URL_PROD = "https://www.programmes-radio.com"
         const val BASE_URL_DEV = "https://local.programmes-radio.io:8080"
     }
 
@@ -125,6 +125,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         super.onRestoreInstanceState(savedInstanceState)
         mWebView!!.restoreState(savedInstanceState)
     }
