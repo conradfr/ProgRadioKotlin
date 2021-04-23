@@ -31,21 +31,36 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
+import com.android.volley.DefaultRetryPolicy
+import com.android.volley.Request
+import com.android.volley.RequestQueue
+import com.android.volley.toolbox.HurlStack
+import com.android.volley.toolbox.JsonObjectRequest
+import com.android.volley.toolbox.Volley
 import com.google.android.exoplayer2.*
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
+import kotlinx.coroutines.*
+import kotlinx.serialization.*
+import kotlinx.serialization.json.*
+import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import javax.net.ssl.*
+
 
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
 private const val MY_EMPTY_MEDIA_ROOT_ID = "empty_root_id"
 
 private const val CHANNEL_ID = "com.android.progradio.channel_1"
 private const val NOTIFICATION_ID = 666
+
+private const val LISTENING_SOURCE = "android"
 
 class MediaPlaybackService : MediaBrowserServiceCompat() {
 
@@ -66,10 +81,15 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private lateinit var localManager: LocalBroadcastManager
 
+    private var listeningSessionStart: ZonedDateTime? = null
+
+    private var radioCollection: List<Radio>? = null
+
     // ----------------------------------------------------------------------------------------------------
 
     inner class BecomingNoisyReceiver : BroadcastReceiver() {
 
+        @RequiresApi(Build.VERSION_CODES.O)
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_AUDIO_BECOMING_NOISY) {
                 this@MediaPlaybackService.callback.onPause()
@@ -82,6 +102,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
 
@@ -97,8 +118,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             // Set an initial PlaybackState with ACTION_PLAY, so media buttons can start the player
             stateBuilder = PlaybackStateCompat.Builder()
                 .setActions(
-                    PlaybackStateCompat.ACTION_PLAY
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                            or PlaybackStateCompat.ACTION_PLAY
                             or PlaybackStateCompat.ACTION_PLAY_PAUSE
+                            or PlaybackStateCompat.ACTION_PAUSE
+                            or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
                 )
 
             setPlaybackState(stateBuilder.build())
@@ -215,6 +239,20 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 localManager.sendBroadcast(intent)
             }
 
+            if (action == "setList") {
+                val data = extras?.getString("list")
+                if (data !== null) {
+                    try {
+                        radioCollection = Json.decodeFromString<List<Radio>>(data)
+                        buildNotification(baseContext, player?.isPlaying == true)
+                    } catch (e: Exception) {
+                        // handler
+                    }
+                } else {
+                    radioCollection = null;
+                }
+            }
+
             if (action == "updateMetadata") {
                 mediaSession!!.setMetadata(
                     MediaMetadataCompat.Builder()
@@ -257,11 +295,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             super.onCustomAction(action, extras)
         }
 
-        override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+/*        override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
             val mediaController = mediaSession?.controller
             
             if (mediaController !== null) {
-/*                val pbState = mediaController.playbackState.state
+*//*                val pbState = mediaController.playbackState.state
 
                 if (pbState == PlaybackStateCompat.STATE_PLAYING) {
                     mediaController.transportControls.pause()
@@ -269,7 +307,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 } else {
                     mediaController.transportControls.play()
                     return true
-                }*/
+                }*//*
 
                 return if (player?.isPlaying == true) {
                     mediaController.transportControls.pause()
@@ -281,12 +319,68 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             }
 
             return super.onMediaButtonEvent(mediaButtonEvent)
-        }
+        }*/
 
         @RequiresApi(Build.VERSION_CODES.O)
         override fun onPlayFromUri(uri: Uri?, extras: Bundle?) {
 //            player?.reset()
-            player?.stop()
+
+            if (player?.isPlaying == true) {
+
+                val currentPlayingUrl = mediaSession?.controller?.metadata?.getString(
+                    MediaMetadataCompat.METADATA_KEY_MEDIA_URI
+                )
+
+                val newUrl = extras?.getString(
+                    MediaMetadataCompat.METADATA_KEY_MEDIA_URI
+                )
+
+                if (!newUrl.equals(currentPlayingUrl)) {
+                    sendListeningSession(
+                        listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+                            MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                        )
+                    )
+
+                    player?.stop()
+                } else {
+                    // just update notification
+
+                    mediaSession!!.setMetadata(
+                        MediaMetadataCompat.Builder()
+                            .putString(
+                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID, extras?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                                )
+                            )
+                            .putString(
+                                MediaMetadataCompat.METADATA_KEY_ARTIST, extras?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_ARTIST
+                                )
+                            )
+                            .putString(
+                                MediaMetadataCompat.METADATA_KEY_TITLE, extras?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_TITLE
+                                )
+                            )
+                            .putString(
+                                MediaMetadataCompat.METADATA_KEY_MEDIA_URI, extras?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_MEDIA_URI
+                                )
+                            )
+                            .putString(
+                                MediaMetadataCompat.METADATA_KEY_ART_URI, extras?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_ART_URI
+                                )
+                            )
+                            .build()
+                    )
+
+                    buildNotification(baseContext, true)
+
+                    return
+                }
+            }
 
             val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -322,7 +416,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                 MediaMetadataCompat.METADATA_KEY_ARTIST
                             )
                         )
-//                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "Test Album")
                         .putString(
                             MediaMetadataCompat.METADATA_KEY_TITLE, extras?.getString(
                                 MediaMetadataCompat.METADATA_KEY_TITLE
@@ -338,10 +431,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                 MediaMetadataCompat.METADATA_KEY_ART_URI
                             )
                         )
-/*                        .putBitmap(
-                            MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
-                            BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-                        )*/
                         .build()
                 )
 
@@ -350,9 +439,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .setCategory("android")
                         .setAction("play")
                         .setValue(3)
-                        .setLabel(extras?.getString(
-                            MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                        ))
+                        .setLabel(
+                            extras?.getString(
+                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                            )
+                        )
                         .build()
                 )
 
@@ -363,6 +454,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 player?.setMediaItem(mediaItem)
                 player?.prepare()
                 player?.play()
+
+                listeningSessionStart = ZonedDateTime.now()
 
                 buildNotification(baseContext, true)
 
@@ -421,9 +514,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             .setCategory("android")
                             .setAction("play")
                             .setValue(3)
-                            .setLabel(mediaSession?.controller?.metadata?.getString(
-                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                            ))
+                            .setLabel(
+                                mediaSession?.controller?.metadata?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                                )
+                            )
                             .build()
                     )
 
@@ -431,6 +526,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     player?.setMediaItem(mediaItem)
                     player?.prepare()
                     player?.play()
+
+                    listeningSessionStart = ZonedDateTime.now()
 
                     buildNotification(baseContext, true)
 
@@ -448,19 +545,28 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
         }
 
+       @RequiresApi(Build.VERSION_CODES.O)
        override fun onPause() {
            if (player?.isPlaying == true) {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                // Update metadata and state
+
+               sendListeningSession(
+                   listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+                       MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                   )
+               )
 
                mTracker?.send(
                    EventBuilder()
                        .setCategory("android")
                        .setAction("pause")
                        .setValue(1)
-                       .setLabel(mediaSession?.controller?.metadata?.getString(
-                           MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                       ))
+                       .setLabel(
+                           mediaSession?.controller?.metadata?.getString(
+                               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                           )
+                       )
                        .build()
                )
 
@@ -482,42 +588,111 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                buildNotification(baseContext, false)
                stopForeground(false)
            }
-        }
+       }
 
-        @RequiresApi(Build.VERSION_CODES.O)
-        override fun onStop() {
-            val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            // Abandon audio focus
-            am.abandonAudioFocusRequest(audioFocusRequest)
-            unregisterReceiver(myNoisyAudioStreamReceiver)
-            // Stop the service
-            stopSelf()
-            // Set the session inactive  (and update metadata and state)
-            mediaSession?.isActive = false
+       @RequiresApi(Build.VERSION_CODES.O)
+       override fun onSkipToPrevious() {
+           if (radioCollection == null || radioCollection!!.size < 2) {
+               return;
+           }
+
+           val currentRadioCodeName = mediaSession?.controller?.metadata?.getString(
+               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+           ) ?: return
+
+           val currentIndex = radioCollection!!.indexOfFirst { it.codeName == currentRadioCodeName }
+           var nextIndex = currentIndex - 1
+
+           if (nextIndex < 0) {
+               nextIndex = radioCollection!!.size - 1
+           }
+
+           val elem = radioCollection!![nextIndex]
+
+           val streamUri = Uri.parse(elem.streamUrl)
+           val extra = Bundle()
+           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, elem.codeName)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+
+           onPlayFromUri(streamUri, extra)
+       }
+
+       @RequiresApi(Build.VERSION_CODES.O)
+       override fun onSkipToNext() {
+           if (radioCollection == null || radioCollection!!.size < 2) {
+               return;
+           }
+
+           val currentRadioCodeName = mediaSession?.controller?.metadata?.getString(
+               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+           ) ?: return
+
+           val currentIndex = radioCollection!!.indexOfFirst {
+               it.codeName == currentRadioCodeName
+           }
+           var nextIndex = currentIndex + 1
+
+           if (nextIndex + 1 > radioCollection!!.size) {
+               nextIndex = 0
+           }
+
+           val elem = radioCollection!![nextIndex]
+
+           val streamUri = Uri.parse(elem.streamUrl)
+           val extra = Bundle()
+           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, elem.codeName)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+
+           onPlayFromUri(streamUri, extra)
+       }
+
+       @RequiresApi(Build.VERSION_CODES.O)
+       override fun onStop() {
+           if (player?.isPlaying == true) {
+               sendListeningSession(
+                   listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+                       MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                   )
+               )
+           }
+
+           val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+           // Abandon audio focus
+           am.abandonAudioFocusRequest(audioFocusRequest)
+           unregisterReceiver(myNoisyAudioStreamReceiver)
+           // Stop the service
+           stopSelf()
+           // Set the session inactive  (and update metadata and state)
+           mediaSession?.isActive = false
 
             // stop the player (custom call)
-            player?.stop()
+           player?.stop()
+           mTracker?.send(
+               EventBuilder()
+                   .setCategory("android")
+                   .setAction("pause")
+                   .setValue(1)
+                   .setLabel(
+                       mediaSession?.controller?.metadata?.getString(
+                           MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                       )
+                   )
+                   .build()
+           )
 
-            mTracker?.send(
-                EventBuilder()
-                    .setCategory("android")
-                    .setAction("pause")
-                    .setValue(1)
-                    .setLabel(mediaSession?.controller?.metadata?.getString(
-                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                    ))
-                    .build()
-            )
+           val intent = Intent("UpdatePlaybackStatus")
+           intent.putExtra("radioCodeName", "rtl")
+           intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
 
-            val intent = Intent("UpdatePlaybackStatus")
-            intent.putExtra("radioCodeName", "rtl")
-            intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
+           localManager.sendBroadcast(intent)
 
-            localManager.sendBroadcast(intent)
-
-            // Take the service out of the foreground
-            stopForeground(false)
-        }
+           // Take the service out of the foreground
+           stopForeground(false)
+       }
     }
 
     // ----------------------------------------------------------------------------------------------------
@@ -537,7 +712,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 */
 
+        @RequiresApi(Build.VERSION_CODES.O)
         override fun onPlayerError(e: ExoPlaybackException) {
+            this@MediaPlaybackService.sendListeningSession(
+                listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+                    MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                )
+            )
+
             Toast.makeText(baseContext, getString(R.string.playing_error), Toast.LENGTH_SHORT).show()
 
             val intent = Intent("UpdatePlaybackStatus")
@@ -550,6 +732,61 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             this@MediaPlaybackService.localManager.sendBroadcast(intent)
             this@MediaPlaybackService.buildNotification(baseContext, false)
+        }
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun sendListeningSession(datetimeStart: ZonedDateTime?, radioCodeName: String?) = runBlocking {
+        launch {
+            if (datetimeStart !== null && radioCodeName !== null) {
+                val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+
+                val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
+                val mURL = "$baseUrl/listening_session"
+
+                val values = JSONObject()
+                values.put("id", radioCodeName)
+                values.put("date_time_start", datetimeStart.format(formatter))
+                values.put("date_time_end", ZonedDateTime.now().format(formatter))
+                values.put("source", LISTENING_SOURCE)
+
+                var que: RequestQueue
+
+                // ssl disabled for dev
+                if (BuildConfig.DEBUG) {
+                    que = Volley.newRequestQueue(baseContext, object : HurlStack() {
+                        @Throws(IOException::class)
+                        override fun createConnection(url: URL): HttpURLConnection {
+                            val connection =
+                                (URL(mURL).openConnection() as HttpsURLConnection).apply {
+                                    sslSocketFactory = createSocketFactory(listOf("TLSv1.2"))
+                                    hostnameVerifier = HostnameVerifier { _, _ -> true }
+                                    readTimeout = 5_000
+                                }
+                            return connection
+                        }
+                    })
+                } else {
+                    que = Volley.newRequestQueue(baseContext)
+                }
+
+                val req = JsonObjectRequest(Request.Method.POST, mURL, values,
+                    { _ ->
+//                    println(response["msg"].toString())
+                        println("ok")
+
+                    }, {
+                        println("Error")
+                    })
+                req.retryPolicy = DefaultRetryPolicy(
+                    0,
+                    DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+                    DefaultRetryPolicy.DEFAULT_BACKOFF_MULT
+                )
+                que.add(req)
+            }
         }
     }
 
@@ -609,6 +846,21 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 setSmallIcon(R.drawable.ic_brand_logo)
                 color = ContextCompat.getColor(context, R.color.primary)
 
+                if (radioCollection != null && radioCollection!!.size > 1) {
+                    addAction(
+                        NotificationCompat.Action(
+                            //                    R.drawable.pause,
+                            android.R.drawable.ic_media_previous,
+                            //                    getString(R.string.pause),
+                            getString(R.string.previous),
+                            MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                context,
+                                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                            )
+                        )
+                    )
+                }
+
                 if (play) {
                     // Stop the service when the notification is swiped away
 /*                    val closeIntent = Intent(applicationContext, NotificationDismissedReceiver::class.java)
@@ -630,7 +882,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             getString(R.string.pause),
                             MediaButtonReceiver.buildMediaButtonPendingIntent(
                                 context,
-                                PlaybackStateCompat.ACTION_PLAY_PAUSE
+                                PlaybackStateCompat.ACTION_PAUSE
                             )
                         )
                     )
@@ -644,7 +896,22 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             getString(R.string.play),
                             MediaButtonReceiver.buildMediaButtonPendingIntent(
                                 context,
-                                PlaybackStateCompat.ACTION_PLAY_PAUSE
+                                PlaybackStateCompat.ACTION_PLAY
+                            )
+                        )
+                    )
+                }
+
+                if (radioCollection != null && radioCollection!!.size > 1) {
+                    addAction(
+                        NotificationCompat.Action(
+                            //                    R.drawable.pause,
+                            android.R.drawable.ic_media_next,
+                            //                    getString(R.string.pause),
+                            getString(R.string.next),
+                            MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                context,
+                                PlaybackStateCompat.ACTION_SKIP_TO_NEXT
                             )
                         )
                     )
@@ -669,7 +936,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) !== null) {
                 val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
-//                val baseUrl = MainActivity.Companion.BASE_URL_PROD
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
                 if (bitmapUrl !== null) {
                     val currentLoadImageTask = LoadImageTask(builder, play)
@@ -695,7 +961,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 return if (p0.isEmpty()) {
                     null
                 } else try {
-
                     val connection = if (BuildConfig.DEBUG) {
                         (URL(p0[0]).openConnection() as HttpsURLConnection).apply {
                             sslSocketFactory = createSocketFactory(listOf("TLSv1.2"))
@@ -748,5 +1013,4 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             })
             init(null, trustAllCerts, SecureRandom())
         }.socketFactory
-
 }

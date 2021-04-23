@@ -4,5 +4,7 @@
     <string name="channel_description">Contrôles du lecteur</string>
     <string name="pause">Pause</string>
     <string name="play">Lecture</string>
+    <string name="previous">Précédente</string>
+    <string name="next">Suivante</string>
     <string name="playing_error">Erreur de lecture</string>
 </resources>

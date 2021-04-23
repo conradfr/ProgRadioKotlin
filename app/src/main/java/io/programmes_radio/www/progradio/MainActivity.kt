@@ -20,7 +20,9 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val BASE_URL_PROD = "https://www.programmes-radio.com"
-        const val BASE_URL_DEV = "https://local.programmes-radio.io:8080"
+        const val BASE_URL_API_PROD = "https://api.programmes-radio.com"
+        const val BASE_URL_DEV = "https://local.programmes-radio.com:8080"
+        const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
     }
 
     private var jsInterface: WebAppInterface? = null
@@ -31,16 +33,29 @@ class MainActivity : AppCompatActivity() {
     // Receive player update and send it to the webview vue app
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            mWebView!!.post {
-                mWebView!!.evaluateJavascript(
-                    "document.getElementById('app').__vue__.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
-                        intent?.getIntExtra(
-                            "playbackState",
-                            0
-                        )
-                    }, radioCodeName: '${intent?.getStringExtra("radioCodeName")}'});",
-                    null
-                )
+            if (intent?.action === "UpdatePlaybackStatus") {
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue__.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
+                            intent?.getIntExtra(
+                                "playbackState",
+                                0
+                            )
+                        }, radioCodeName: '${intent?.getStringExtra("radioCodeName")}'});",
+                        null
+                    )
+                }
+            }
+
+            if (intent?.action === "Command") {
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue__.\$store.dispatch('commandFromExternalPlayer', {command: '${
+                            intent?.getStringExtra("command")
+                        }'});",
+                        null
+                    )
+                }
             }
         }
     }
@@ -53,8 +68,9 @@ class MainActivity : AppCompatActivity() {
 
         // receiver for vue app update
 //        if (savedInstanceState === null) {
-            localManager = LocalBroadcastManager.getInstance(baseContext)
-            filter.addAction("UpdatePlaybackStatus")
+        localManager = LocalBroadcastManager.getInstance(baseContext)
+        filter.addAction("UpdatePlaybackStatus")
+        filter.addAction("Command")
         localManager.registerReceiver(receiver, filter)
 //        }
 

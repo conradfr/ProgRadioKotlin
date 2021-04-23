@@ -158,6 +158,16 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
     }
 
     @JavascriptInterface
+    fun list(listJson: String) {
+        if (mediaBrowser.isConnected) {
+            val activity = context as Activity
+            val extra = Bundle()
+            extra.putString("list", listJson)
+            MediaControllerCompat.getMediaController(activity)?.transportControls?.sendCustomAction("setList", extra)
+        }
+    }
+
+    @JavascriptInterface
     fun getstate() {
         if (mediaBrowser.isConnected) {
             val activity = context as Activity

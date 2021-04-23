@@ -4,5 +4,7 @@
     <string name="channel_description">Player controls</string>
     <string name="pause">Pause</string>
     <string name="play">Play</string>
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
     <string name="playing_error">Error</string>
 </resources>
