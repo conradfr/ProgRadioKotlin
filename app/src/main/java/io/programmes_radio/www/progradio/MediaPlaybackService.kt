@@ -918,10 +918,18 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 }
 
                 // Take advantage of MediaStyle features
-                setStyle(
-                    MediaStyle()
-                        .setMediaSession(mediaSession?.sessionToken)
-                        .setShowActionsInCompactView(0)
+
+                if (radioCollection != null && radioCollection!!.size > 1) {
+                    setStyle(
+                        MediaStyle()
+                            .setMediaSession(mediaSession?.sessionToken)
+                            .setShowActionsInCompactView(0,1,2))
+                } else {
+                    setStyle(
+                        MediaStyle()
+                            .setMediaSession(mediaSession?.sessionToken)
+                            .setShowActionsInCompactView(0))
+                }
 
                     // Add a cancel button
 /*                        .setShowCancelButton(true)
@@ -931,7 +939,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                 PlaybackStateCompat.ACTION_STOP
                             )
                         )*/
-                )
             }
 
             if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) !== null) {

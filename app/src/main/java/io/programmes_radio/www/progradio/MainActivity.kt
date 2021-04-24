@@ -37,11 +37,11 @@ class MainActivity : AppCompatActivity() {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue__.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
-                            intent?.getIntExtra(
+                            intent.getIntExtra(
                                 "playbackState",
                                 0
                             )
-                        }, radioCodeName: '${intent?.getStringExtra("radioCodeName")}'});",
+                        }, radioCodeName: '${intent.getStringExtra("radioCodeName")}'});",
                         null
                     )
                 }
@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue__.\$store.dispatch('commandFromExternalPlayer', {command: '${
-                            intent?.getStringExtra("command")
+                            intent.getStringExtra("command")
                         }'});",
                         null
                     )
