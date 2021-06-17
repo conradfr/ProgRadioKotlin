@@ -168,6 +168,16 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
     }
 
     @JavascriptInterface
+    fun timer(minutes: Int) {
+        if (mediaBrowser.isConnected) {
+            val activity = context as Activity
+            val extra = Bundle()
+            extra.putInt("minutes", minutes)
+            MediaControllerCompat.getMediaController(activity)?.transportControls?.sendCustomAction("setTimer", extra)
+        }
+    }
+
+    @JavascriptInterface
     fun getstate() {
         if (mediaBrowser.isConnected) {
             val activity = context as Activity
@@ -175,5 +185,10 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
         } else {
             needUpdate = true
         }
+    }
+
+    @JavascriptInterface
+    fun getVersion(): Int {
+        return BuildConfig.VERSION_CODE
     }
 }

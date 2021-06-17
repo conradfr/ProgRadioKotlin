@@ -7,4 +7,11 @@
     <string name="previous">Précédente</string>
     <string name="next">Suivante</string>
     <string name="playing_error">Erreur de lecture</string>
+    <string name="timer_end">Lecture arrêtée (minuteur)</string>
+    <string name="timer_cancelled">Minuteur annulé</string>
+    <string name="android_version_error">Votre version d\'Android ne permet pas cette fonctionnalité.</string>
+    <plurals name="timer_start">
+        <item quantity="one">La lecture s\'arrêtera dans 1 minute</item>
+        <item quantity="other">La lecture s\'arrêtera dans %d minutes</item>
+    </plurals>
 </resources>

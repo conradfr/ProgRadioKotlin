@@ -19,6 +19,7 @@ import android.net.Uri
 import android.os.AsyncTask
 import android.os.Build
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -53,7 +54,6 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import javax.net.ssl.*
 
-
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
 private const val MY_EMPTY_MEDIA_ROOT_ID = "empty_root_id"
 
@@ -84,6 +84,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var listeningSessionStart: ZonedDateTime? = null
 
     private var radioCollection: List<Radio>? = null
+
+    private var playerTimer: CountDownTimer? = null
 
     // ----------------------------------------------------------------------------------------------------
 
@@ -226,6 +228,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     // ----------------------------------------------------------------------------------------------------
 
     private val callback = object: MediaSessionCompat.Callback() {
+        @RequiresApi(Build.VERSION_CODES.O)
         override fun onCustomAction(action: String?, extras: Bundle?) {
             if (action == "sendUpdate") {
                 val intent = Intent("UpdatePlaybackStatus")
@@ -250,6 +253,39 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     }
                 } else {
                     radioCollection = null;
+                }
+            }
+
+            if (action == "setTimer") {
+                val minutes = extras?.getInt("minutes", 0)
+                if (minutes !== null && minutes > 0) {
+                    Toast.makeText(baseContext, resources.getQuantityString(R.plurals.timer_start, minutes, minutes), Toast.LENGTH_SHORT).show()
+                    playerTimer = object : CountDownTimer(minutes.toLong() * 60 * 1000, 60000) {
+                        override fun onTick(millisUntilFinished: Long) {
+                            val intent = Intent("UpdateTimerFinish")
+                            intent.putExtra("finish", (millisUntilFinished / 1000 / 60).toInt() + 1)
+                            localManager.sendBroadcast(intent)
+                        }
+                        override fun onFinish() {
+                            if (player?.isPlaying == true) {
+                                onStop()
+
+                                Toast.makeText(baseContext, getString(R.string.timer_end), Toast.LENGTH_SHORT).show()
+                            }
+
+                            val intent = Intent("UpdateTimerFinish")
+                            intent.putExtra("finish", 0)
+                            localManager.sendBroadcast(intent)
+                        }
+                    }.start()
+                } else if (playerTimer != null) {
+                    playerTimer?.cancel()
+                    playerTimer = null
+                    Toast.makeText(baseContext, getString(R.string.timer_cancelled), Toast.LENGTH_SHORT).show()
+
+                    val intent = Intent("UpdateTimerFinish")
+//                    intent.putExtra("finish", null)
+                    localManager.sendBroadcast(intent)
                 }
             }
 
@@ -775,10 +811,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 val req = JsonObjectRequest(Request.Method.POST, mURL, values,
                     { _ ->
 //                    println(response["msg"].toString())
-                        println("ok")
 
                     }, {
-                        println("Error")
+
                     })
                 req.retryPolicy = DefaultRetryPolicy(
                     0,

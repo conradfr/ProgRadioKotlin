@@ -45,6 +45,44 @@ class MainActivity : AppCompatActivity() {
                         null
                     )
                 }
+
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
+                            intent.getIntExtra(
+                                "playbackState",
+                                0
+                            )
+                        }, radioCodeName: '${intent.getStringExtra("radioCodeName")}'});",
+                        null
+                    )
+                }
+                return;
+            }
+
+            if (intent?.action === "UpdateTimerFinish") {
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue__.\$store.dispatch('updateTimerEnding', ${
+                            intent.getIntExtra(
+                                "finish",
+                                0
+                            )});",
+                        null
+                    )
+                }
+
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('updateTimerEnding', ${
+                            intent.getIntExtra(
+                                "finish",
+                                0
+                            )});",
+                        null
+                    )
+                }
+                return;
             }
 
             if (intent?.action === "Command") {
@@ -56,6 +94,16 @@ class MainActivity : AppCompatActivity() {
                         null
                     )
                 }
+
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('commandFromExternalPlayer', {command: '${
+                            intent.getStringExtra("command")
+                        }'});",
+                        null
+                    )
+                }
+                return;
             }
         }
     }
@@ -70,6 +118,7 @@ class MainActivity : AppCompatActivity() {
 //        if (savedInstanceState === null) {
         localManager = LocalBroadcastManager.getInstance(baseContext)
         filter.addAction("UpdatePlaybackStatus")
+        filter.addAction("UpdateTimerFinish")
         filter.addAction("Command")
         localManager.registerReceiver(receiver, filter)
 //        }

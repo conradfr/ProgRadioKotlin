@@ -7,4 +7,11 @@
     <string name="previous">Previous</string>
     <string name="next">Next</string>
     <string name="playing_error">Error</string>
+    <string name="timer_end">Playing stopped (timer)</string>
+    <string name="timer_cancelled">Timer cancelled</string>
+    <string name="android_version_error">Your Android version doesn\'t allow this feature</string>
+    <plurals name="timer_start">
+        <item quantity="one">Audio playing will stop in 1 minute</item>
+        <item quantity="other">Audio playing will stop in %d minutes</item>
+    </plurals>
 </resources>
