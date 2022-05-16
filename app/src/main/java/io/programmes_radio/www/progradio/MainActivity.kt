@@ -9,10 +9,7 @@ import android.media.AudioManager
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
-import android.webkit.SslErrorHandler
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
@@ -21,6 +18,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val BASE_URL_PROD = "https://www.programmes-radio.com"
         const val BASE_URL_API_PROD = "https://api.programmes-radio.com"
+//        const val BASE_URL_DEV = "https://www.programmes-radio.com"
+//        const val BASE_URL_API_DEV = "https://api.programmes-radio.com"
         const val BASE_URL_DEV = "https://local.programmes-radio.com:8080"
         const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
     }
@@ -36,18 +35,6 @@ class MainActivity : AppCompatActivity() {
             if (intent?.action === "UpdatePlaybackStatus") {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue__.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
-                            intent.getIntExtra(
-                                "playbackState",
-                                0
-                            )
-                        }, radioCodeName: '${intent.getStringExtra("radioCodeName")}'});",
-                        null
-                    )
-                }
-
-                mWebView!!.post {
-                    mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
                             intent.getIntExtra(
                                 "playbackState",
@@ -57,21 +44,23 @@ class MainActivity : AppCompatActivity() {
                         null
                     )
                 }
-                return;
-            }
 
-            if (intent?.action === "UpdateTimerFinish") {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue__.\$store.dispatch('updateTimerEnding', ${
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateStatusFromExternalPlayer({playbackState: ${
                             intent.getIntExtra(
-                                "finish",
+                                "playbackState",
                                 0
-                            )});",
+                            )
+                        }, radioCodeName: '${intent.getStringExtra("radioCodeName")}});",
                         null
                     )
                 }
 
+                return;
+            }
+
+            if (intent?.action === "UpdateTimerFinish") {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('updateTimerEnding', ${
@@ -82,19 +71,22 @@ class MainActivity : AppCompatActivity() {
                         null
                     )
                 }
-                return;
-            }
 
-            if (intent?.action === "Command") {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue__.\$store.dispatch('commandFromExternalPlayer', {command: '${
-                            intent.getStringExtra("command")
-                        }'});",
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateTimerEnding(${
+                            intent.getIntExtra(
+                                "finish",
+                                0
+                            )});",
                         null
                     )
                 }
 
+                return;
+            }
+
+            if (intent?.action === "Command") {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('commandFromExternalPlayer', {command: '${
@@ -103,6 +95,16 @@ class MainActivity : AppCompatActivity() {
                         null
                     )
                 }
+
+                mWebView!!.post {
+                    mWebView!!.evaluateJavascript(
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').commandFromExternalPlayer({command: '${
+                            intent.getStringExtra("command")
+                        }'});",
+                        null
+                    )
+                }
+
                 return;
             }
         }
@@ -130,7 +132,9 @@ class MainActivity : AppCompatActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             jsInterface = WebAppInterface(this)
-            mWebView!!.addJavascriptInterface(jsInterface, "Android")
+            if (jsInterface != null) {
+                mWebView!!.addJavascriptInterface(jsInterface!!, "Android")
+            }
         }
 
         mWebView!!.webViewClient = object : WebViewClient() {
@@ -189,7 +193,7 @@ class MainActivity : AppCompatActivity() {
         mWebView!!.saveState(outState)
     }
 
-    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         super.onRestoreInstanceState(savedInstanceState)
         mWebView!!.restoreState(savedInstanceState)
@@ -197,6 +201,7 @@ class MainActivity : AppCompatActivity() {
 
     public override fun onStop() {
         super.onStop()
+        CookieManager.getInstance().flush();
         jsInterface?.mediaSessionDisconnect()
     }
 }

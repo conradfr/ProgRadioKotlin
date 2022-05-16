@@ -3,8 +3,8 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlinx-serialization'
 
 android {
-    compileSdkVersion 29
-    buildToolsVersion "29.0.3"
+    compileSdkVersion 32
+    buildToolsVersion "30.0.3"
 
     compileOptions {
         sourceCompatibility = 1.8
@@ -14,9 +14,9 @@ android {
     defaultConfig {
         applicationId "io.programmes_radio.www.progradio"
         minSdkVersion 24
-        targetSdkVersion 29
-        versionCode 17
-        versionName "2.3"
+        targetSdkVersion 32
+        versionCode 19
+        versionName "2.41"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

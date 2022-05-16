@@ -38,12 +38,16 @@ import com.android.volley.RequestQueue
 import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
-import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.ExoPlaybackException
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
-import kotlinx.coroutines.*
-import kotlinx.serialization.*
-import kotlinx.serialization.json.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -156,6 +160,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     AudioManager.AUDIOFOCUS_GAIN -> {
                         // Set volume level to desired levels
 //                        play()
+                        val test = 3
                     }
                     AudioManager.AUDIOFOCUS_GAIN_TRANSIENT -> {
                         // You have audio focus for a short time
