@@ -38,10 +38,7 @@ import com.android.volley.RequestQueue
 import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
-import com.google.android.exoplayer2.ExoPlaybackException
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.SimpleExoPlayer
+import com.google.android.exoplayer2.*
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
 import kotlinx.coroutines.launch
@@ -76,10 +73,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private val intentFilter = IntentFilter(ACTION_AUDIO_BECOMING_NOISY)
 
     private lateinit var afChangeListener: OnAudioFocusChangeListener
-    private lateinit var playbackStateListener: PlaybackStateListener
+    private lateinit var playbackStateListener: Player.Listener
     private val myNoisyAudioStreamReceiver = BecomingNoisyReceiver()
 //    private lateinit var myPlayerNotification: MediaStyleNotification
-    private var player: SimpleExoPlayer? = null
+    private var player: ExoPlayer? = null
 
     private lateinit var audioFocusRequest: AudioFocusRequest
 
@@ -141,7 +138,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             playbackStateListener = PlaybackStateListener()
 
-            player = SimpleExoPlayer.Builder(baseContext).build()
+            player = ExoPlayer.Builder(baseContext).build()
             player?.addListener(playbackStateListener)
 /*            val trackSelector = DefaultTrackSelector(baseContext)
             player?.addAnalyticsListener(EventLogger(trackSelector))*/
@@ -475,17 +472,19 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .build()
                 )
 
+                val event = EventBuilder()
+                    .setCategory("android")
+                    .setAction("play")
+                    .setValue(3)
+
+                val label = extras?.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)
+
+                if (label != null) {
+                    event.setLabel(label)
+                }
+
                 mTracker?.send(
-                    EventBuilder()
-                        .setCategory("android")
-                        .setAction("play")
-                        .setValue(3)
-                        .setLabel(
-                            extras?.getString(
-                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                            )
-                        )
-                        .build()
+                    event.build()
                 )
 
                 // Register BECOME_NOISY BroadcastReceiver
@@ -549,18 +548,21 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
 
                 if (uri !== null) {
+                    val event = EventBuilder()
+                        .setCategory("android")
+                        .setAction("play")
+                        .setValue(3)
+
+                    val label = mediaSession?.controller?.metadata?.getString(
+                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                    )
+
+                    if (label != null) {
+                        event.setLabel(label)
+                    }
 
                     mTracker?.send(
-                        EventBuilder()
-                            .setCategory("android")
-                            .setAction("play")
-                            .setValue(3)
-                            .setLabel(
-                                mediaSession?.controller?.metadata?.getString(
-                                    MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                                )
-                            )
-                            .build()
+                        event.build()
                     )
 
                     val mediaItem: MediaItem = MediaItem.fromUri(uri)
@@ -598,17 +600,21 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                    )
                )
 
+               val event = EventBuilder()
+                   .setCategory("android")
+                   .setAction("pause")
+                   .setValue(1)
+
+               val label = mediaSession?.controller?.metadata?.getString(
+                   MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+               )
+
+               if (label != null) {
+                   event.setLabel(label)
+               }
+
                mTracker?.send(
-                   EventBuilder()
-                       .setCategory("android")
-                       .setAction("pause")
-                       .setValue(1)
-                       .setLabel(
-                           mediaSession?.controller?.metadata?.getString(
-                               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                           )
-                       )
-                       .build()
+                   event.build()
                )
 
                val radioCodeName = mediaSession?.controller?.metadata?.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)
@@ -712,17 +718,22 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             // stop the player (custom call)
            player?.stop()
+
+           val event = EventBuilder()
+               .setCategory("android")
+               .setAction("pause")
+               .setValue(1)
+
+           val label = mediaSession?.controller?.metadata?.getString(
+               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+           )
+
+           if (label != null) {
+               event.setLabel(label)
+           }
+
            mTracker?.send(
-               EventBuilder()
-                   .setCategory("android")
-                   .setAction("pause")
-                   .setValue(1)
-                   .setLabel(
-                       mediaSession?.controller?.metadata?.getString(
-                           MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                       )
-                   )
-                   .build()
+               event.build()
            )
 
            val intent = Intent("UpdatePlaybackStatus")
@@ -738,7 +749,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
-    inner class PlaybackStateListener : Player.EventListener {
+    inner class PlaybackStateListener : Player.Listener {
 /*
         override fun onPlaybackStateChanged(playbackState: Int) {
             val stateString: String
@@ -754,7 +765,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 */
 
         @RequiresApi(Build.VERSION_CODES.O)
-        override fun onPlayerError(e: ExoPlaybackException) {
+        override fun onPlayerError(error: PlaybackException) {
             this@MediaPlaybackService.sendListeningSession(
                 listeningSessionStart, mediaSession?.controller?.metadata?.getString(
                     MediaMetadataCompat.METADATA_KEY_MEDIA_ID
@@ -817,8 +828,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     { _ ->
 //                    println(response["msg"].toString())
 
-                    }, {
-
+                    }, { _ ->
+                        // println(error.toString())
                     })
                 req.retryPolicy = DefaultRetryPolicy(
                     0,
@@ -865,7 +876,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             intent.addCategory(Intent.CATEGORY_LAUNCHER)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val contentIntent = PendingIntent.getActivity(
-                this, 0, intent, 0
+                this, 0, intent, PendingIntent.FLAG_IMMUTABLE
             )
 
             val builder = NotificationCompat.Builder(context, CHANNEL_ID).apply {
