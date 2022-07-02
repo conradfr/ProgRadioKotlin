@@ -18,10 +18,10 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val BASE_URL_PROD = "https://www.programmes-radio.com"
         const val BASE_URL_API_PROD = "https://api.programmes-radio.com"
-//        const val BASE_URL_DEV = "https://www.programmes-radio.com"
-//        const val BASE_URL_API_DEV = "https://api.programmes-radio.com"
-        const val BASE_URL_DEV = "https://local.programmes-radio.com:8080"
-        const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
+        const val BASE_URL_DEV = "https://www.programmes-radio.com"
+        const val BASE_URL_API_DEV = "https://api.programmes-radio.com"
+//        const val BASE_URL_DEV = "https://local.programmes-radio.com:8080"
+//        const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
     }
 
     private var jsInterface: WebAppInterface? = null
@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
             if (intent?.action === "UpdatePlaybackStatus") {
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('updateStatusFromExternalPlayer', {playbackState: ${
+                        "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateStatusFromExternalPlayer({playbackState: ${
                             intent.getIntExtra(
                                 "playbackState",
                                 0
@@ -45,33 +45,10 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
 
-                mWebView!!.post {
-                    mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateStatusFromExternalPlayer({playbackState: ${
-                            intent.getIntExtra(
-                                "playbackState",
-                                0
-                            )
-                        }, radioCodeName: '${intent.getStringExtra("radioCodeName")}});",
-                        null
-                    )
-                }
-
                 return;
             }
 
             if (intent?.action === "UpdateTimerFinish") {
-                mWebView!!.post {
-                    mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('updateTimerEnding', ${
-                            intent.getIntExtra(
-                                "finish",
-                                0
-                            )});",
-                        null
-                    )
-                }
-
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateTimerEnding(${
@@ -87,15 +64,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (intent?.action === "Command") {
-                mWebView!!.post {
-                    mWebView!!.evaluateJavascript(
-                        "document.getElementById('app').__vue_app__.config.globalProperties.\$store.dispatch('commandFromExternalPlayer', {command: '${
-                            intent.getStringExtra("command")
-                        }'});",
-                        null
-                    )
-                }
-
                 mWebView!!.post {
                     mWebView!!.evaluateJavascript(
                         "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').commandFromExternalPlayer({command: '${

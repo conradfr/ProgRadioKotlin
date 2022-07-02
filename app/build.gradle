@@ -15,8 +15,8 @@ android {
         applicationId "io.programmes_radio.www.progradio"
         minSdkVersion 24
         targetSdkVersion 32
-        versionCode 19
-        versionName "2.41"
+        versionCode 21
+        versionName "2.43"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -24,7 +24,6 @@ android {
     buildFeatures {
         viewBinding true
     }
-
 
     buildTypes {
         release {

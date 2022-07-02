@@ -160,7 +160,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     AudioManager.AUDIOFOCUS_GAIN -> {
                         // Set volume level to desired levels
 //                        play()
-                        val test = 3
+                        this@MediaPlaybackService.callback.onPlay()
                     }
                     AudioManager.AUDIOFOCUS_GAIN_TRANSIENT -> {
                         // You have audio focus for a short time
