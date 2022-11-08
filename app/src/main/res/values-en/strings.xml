@@ -7,6 +7,7 @@
     <string name="previous">Previous</string>
     <string name="next">Next</string>
     <string name="playing_error">Error</string>
+    <string name="permission_location_rationale">Share your location?</string>
     <string name="timer_end">Playing stopped (timer)</string>
     <string name="timer_cancelled">Timer cancelled</string>
     <string name="android_version_error">Your Android version doesn\'t allow this feature</string>

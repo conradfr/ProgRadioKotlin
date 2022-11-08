@@ -28,7 +28,6 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
@@ -45,6 +44,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import org.greenrobot.eventbus.EventBus
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -80,8 +80,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private lateinit var audioFocusRequest: AudioFocusRequest
 
-    private lateinit var localManager: LocalBroadcastManager
-
     private var listeningSessionStart: ZonedDateTime? = null
 
     private var radioCollection: List<Radio>? = null
@@ -113,7 +111,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         mTracker = application.getDefaultTracker()
 
         createNotificationChannel()
-        localManager = LocalBroadcastManager.getInstance(baseContext)
 
         // Create a MediaSessionCompat
         mediaSession = MediaSessionCompat(baseContext, "ProgRadioPlayback").apply {
@@ -241,7 +238,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
                 intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
-                localManager.sendBroadcast(intent)
+                EventBus.getDefault().post(intent)
             }
 
             if (action == "setList") {
@@ -266,7 +263,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         override fun onTick(millisUntilFinished: Long) {
                             val intent = Intent("UpdateTimerFinish")
                             intent.putExtra("finish", (millisUntilFinished / 1000 / 60).toInt() + 1)
-                            localManager.sendBroadcast(intent)
+                            EventBus.getDefault().post(intent)
                         }
                         override fun onFinish() {
                             if (player?.isPlaying == true) {
@@ -277,7 +274,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                             val intent = Intent("UpdateTimerFinish")
                             intent.putExtra("finish", 0)
-                            localManager.sendBroadcast(intent)
+                            EventBus.getDefault().post(intent)
                         }
                     }.start()
                 } else if (playerTimer != null) {
@@ -287,7 +284,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                     val intent = Intent("UpdateTimerFinish")
 //                    intent.putExtra("finish", null)
-                    localManager.sendBroadcast(intent)
+                    EventBus.getDefault().post(intent)
                 }
             }
 
@@ -507,7 +504,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
                 intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
-                localManager.sendBroadcast(intent)
+                EventBus.getDefault().post(intent)
             }
         }
 
@@ -582,7 +579,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     )
                     intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
-                    localManager.sendBroadcast(intent)
+                    EventBus.getDefault().post(intent)
                 }
             }
 
@@ -623,7 +620,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                intent.putExtra("radioCodeName", radioCodeName)
                intent.putExtra("playbackState", PlaybackState.STATE_PAUSED)
 
-               localManager.sendBroadcast(intent)
+               EventBus.getDefault().post(intent)
 
                // pause the player (custom call)
                player?.pause()
@@ -740,7 +737,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            intent.putExtra("radioCodeName", "rtl")
            intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
 
-           localManager.sendBroadcast(intent)
+           EventBus.getDefault().post(intent)
 
            // Take the service out of the foreground
            stopForeground(false)
@@ -782,7 +779,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             )
             intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
 
-            this@MediaPlaybackService.localManager.sendBroadcast(intent)
+            EventBus.getDefault().post(intent)
             this@MediaPlaybackService.buildNotification(baseContext, false)
         }
     }

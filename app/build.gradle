@@ -15,8 +15,8 @@ android {
         applicationId "io.programmes_radio.www.progradio"
         minSdkVersion 24
         targetSdkVersion 32
-        versionCode 21
-        versionName "2.43"
+        versionCode 22
+        versionName "2.44"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -34,6 +34,7 @@ android {
             applicationIdSuffix ".debug"
         }
     }
+    namespace 'io.programmes_radio.www.progradio'
 }
 
 dependencies {
@@ -46,12 +47,12 @@ dependencies {
     testImplementation 'junit:junit:4.13'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0"
-    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
-    implementation 'com.google.android.exoplayer:exoplayer:2.18.0'
-    implementation 'com.google.android.exoplayer:extension-mediasession:2.18.0'
-    implementation 'com.google.android.gms:play-services-analytics:18.0.1'
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation 'com.google.android.exoplayer:exoplayer:2.18.1'
+    implementation 'com.google.android.exoplayer:extension-mediasession:2.18.1'
+    implementation 'com.google.android.gms:play-services-analytics:18.0.2'
     implementation 'com.android.volley:volley:1.2.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.1.0'
     implementation 'androidx.work:work-runtime-ktx:2.7.1'
+    implementation("org.greenrobot:eventbus:3.3.1")
 }

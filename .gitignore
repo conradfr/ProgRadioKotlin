@@ -8,12 +8,14 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .idea/
+.idea/*
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
 /work
+/app/release
 ./app/release
 ./app/build
 app/src/main/res/xml/global_tracker.xml

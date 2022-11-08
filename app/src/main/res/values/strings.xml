@@ -7,6 +7,7 @@
     <string name="previous">Précédente</string>
     <string name="next">Suivante</string>
     <string name="playing_error">Erreur de lecture</string>
+    <string name="permission_location_rationale">Partager votre localisation ?</string>
     <string name="timer_end">Lecture arrêtée (minuteur)</string>
     <string name="timer_cancelled">Minuteur annulé</string>
     <string name="android_version_error">Votre version d\'Android ne permet pas cette fonctionnalité.</string>
