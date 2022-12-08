@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.net.http.SslError
-import android.os.Build
 import android.os.Bundle
 import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
@@ -97,11 +96,9 @@ class MainActivity : AppCompatActivity() {
         mWebView = WebView(this)
         setContentView(mWebView)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            jsInterface = WebAppInterface(this)
-            if (jsInterface != null) {
-                mWebView!!.addJavascriptInterface(jsInterface!!, "Android")
-            }
+        jsInterface = WebAppInterface(this)
+        if (jsInterface != null) {
+            mWebView!!.addJavascriptInterface(jsInterface!!, "Android")
         }
 
         mWebView!!.webViewClient = object : WebViewClient() {

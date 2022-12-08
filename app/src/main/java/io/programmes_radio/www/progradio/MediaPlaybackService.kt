@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.AudioAttributes
@@ -16,16 +17,12 @@ import android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY
 import android.media.AudioManager.OnAudioFocusChangeListener
 import android.media.session.PlaybackState
 import android.net.Uri
-import android.os.AsyncTask
-import android.os.Build
-import android.os.Bundle
-import android.os.CountDownTimer
+import android.os.*
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
@@ -53,6 +50,7 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.Executors
 import javax.net.ssl.*
 
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
@@ -86,11 +84,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private var playerTimer: CountDownTimer? = null
 
+    private val myExecutor = Executors.newSingleThreadExecutor()
+    private val myHandler = Handler(Looper.getMainLooper())
+
     // ----------------------------------------------------------------------------------------------------
 
     inner class BecomingNoisyReceiver : BroadcastReceiver() {
-
-        @RequiresApi(Build.VERSION_CODES.O)
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_AUDIO_BECOMING_NOISY) {
                 this@MediaPlaybackService.callback.onPause()
@@ -103,7 +102,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         return super.onStartCommand(intent, flags, startId)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
 
@@ -227,7 +225,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     // ----------------------------------------------------------------------------------------------------
 
     private val callback = object: MediaSessionCompat.Callback() {
-        @RequiresApi(Build.VERSION_CODES.O)
         override fun onCustomAction(action: String?, extras: Bundle?) {
             if (action == "sendUpdate") {
                 val intent = Intent("UpdatePlaybackStatus")
@@ -356,7 +353,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             return super.onMediaButtonEvent(mediaButtonEvent)
         }*/
 
-        @RequiresApi(Build.VERSION_CODES.O)
         override fun onPlayFromUri(uri: Uri?, extras: Bundle?) {
 //            player?.reset()
 
@@ -508,7 +504,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             }
         }
 
-        @RequiresApi(Build.VERSION_CODES.O)
         override fun onPlay() {
             if (player?.isPlaying == true) {
                 return
@@ -532,60 +527,62 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             val result = am.requestAudioFocus(audioFocusRequest)
             if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                 // Start the service
-                startService(Intent(baseContext, MediaPlaybackService::class.java))
+                try {
+                    startService(Intent(baseContext, MediaPlaybackService::class.java))
 
-                // Set the session active (and update metadata and state)
-                mediaSession?.isActive = true
+                    // Set the session active (and update metadata and state)
+                    mediaSession?.isActive = true
 
-                // Register BECOME_NOISY BroadcastReceiver
-                registerReceiver(myNoisyAudioStreamReceiver, intentFilter)
+                    // Register BECOME_NOISY BroadcastReceiver
+                    registerReceiver(myNoisyAudioStreamReceiver, intentFilter)
 
-                val uri = mediaSession?.controller?.metadata?.getString(
-                    MediaMetadataCompat.METADATA_KEY_MEDIA_URI
-                )
-
-                if (uri !== null) {
-                    val event = EventBuilder()
-                        .setCategory("android")
-                        .setAction("play")
-                        .setValue(3)
-
-                    val label = mediaSession?.controller?.metadata?.getString(
-                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                    val uri = mediaSession?.controller?.metadata?.getString(
+                        MediaMetadataCompat.METADATA_KEY_MEDIA_URI
                     )
 
-                    if (label != null) {
-                        event.setLabel(label)
-                    }
+                    if (uri !== null) {
+                        val event = EventBuilder()
+                            .setCategory("android")
+                            .setAction("play")
+                            .setValue(3)
 
-                    mTracker?.send(
-                        event.build()
-                    )
-
-                    val mediaItem: MediaItem = MediaItem.fromUri(uri)
-                    player?.setMediaItem(mediaItem)
-                    player?.prepare()
-                    player?.play()
-
-                    listeningSessionStart = ZonedDateTime.now()
-
-                    buildNotification(baseContext, true)
-
-                    val intent = Intent("UpdatePlaybackStatus")
-                    intent.putExtra(
-                        "radioCodeName", mediaSession?.controller?.metadata?.getString(
+                        val label = mediaSession?.controller?.metadata?.getString(
                             MediaMetadataCompat.METADATA_KEY_MEDIA_ID
                         )
-                    )
-                    intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
-                    EventBus.getDefault().post(intent)
+                        if (label != null) {
+                            event.setLabel(label)
+                        }
+
+                        mTracker?.send(
+                            event.build()
+                        )
+
+                        val mediaItem: MediaItem = MediaItem.fromUri(uri)
+                        player?.setMediaItem(mediaItem)
+                        player?.prepare()
+                        player?.play()
+
+                        listeningSessionStart = ZonedDateTime.now()
+
+                        buildNotification(baseContext, true)
+
+                        val intent = Intent("UpdatePlaybackStatus")
+                        intent.putExtra(
+                            "radioCodeName", mediaSession?.controller?.metadata?.getString(
+                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                            )
+                        )
+                        intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
+
+                        EventBus.getDefault().post(intent)
+                    }
+                } catch (e: IllegalStateException) {
+                    // handler
                 }
             }
-
         }
 
-       @RequiresApi(Build.VERSION_CODES.O)
        override fun onPause() {
            if (player?.isPlaying == true) {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -634,7 +631,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            }
        }
 
-       @RequiresApi(Build.VERSION_CODES.O)
        override fun onSkipToPrevious() {
            if (radioCollection == null || radioCollection!!.size < 2) {
                return;
@@ -663,7 +659,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            onPlayFromUri(streamUri, extra)
        }
 
-       @RequiresApi(Build.VERSION_CODES.O)
        override fun onSkipToNext() {
            if (radioCollection == null || radioCollection!!.size < 2) {
                return;
@@ -694,7 +689,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            onPlayFromUri(streamUri, extra)
        }
 
-       @RequiresApi(Build.VERSION_CODES.O)
        override fun onStop() {
            if (player?.isPlaying == true) {
                sendListeningSession(
@@ -761,7 +755,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 */
 
-        @RequiresApi(Build.VERSION_CODES.O)
         override fun onPlayerError(error: PlaybackException) {
             this@MediaPlaybackService.sendListeningSession(
                 listeningSessionStart, mediaSession?.controller?.metadata?.getString(
@@ -786,7 +779,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private fun sendListeningSession(datetimeStart: ZonedDateTime?, radioCodeName: String?) = runBlocking {
         launch {
             if (datetimeStart !== null && radioCodeName !== null) {
@@ -841,20 +833,16 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     // ----------------------------------------------------------------------------------------------------
 
     private fun createNotificationChannel() {
-        // Create the NotificationChannel, but only on API 26+ because
-        // the NotificationChannel class is new and not in the support library
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = getString(R.string.channel_name)
-            val descriptionText = getString(R.string.channel_description)
-            val importance = NotificationManager.IMPORTANCE_LOW
-            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = descriptionText
-            }
-            // Register the channel with the system
-            val notificationManager: NotificationManager =
-                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val name = getString(R.string.channel_name)
+        val descriptionText = getString(R.string.channel_description)
+        val importance = NotificationManager.IMPORTANCE_LOW
+        val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+            description = descriptionText
         }
+        // Register the channel with the system
+        val notificationManager: NotificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun buildNotification(context: Context, play: Boolean) {
@@ -993,8 +981,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
                 if (bitmapUrl !== null) {
-                    val currentLoadImageTask = LoadImageTask(builder, play)
-                    currentLoadImageTask.execute(baseUrl + bitmapUrl)
+                    LoadImageTask(builder, play, baseUrl + bitmapUrl)
                 }
             } else {
                 // Display the notification and place the service in the foreground
@@ -1007,52 +994,68 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
     }
 
-    inner class LoadImageTask(
-        private val builder: NotificationCompat.Builder?,
-        private val isPlaying: Boolean
-    ) :
-        AsyncTask<String?, Void?, Bitmap?>() {
-            override fun doInBackground(vararg p0: String?): Bitmap? {
-                return if (p0.isEmpty()) {
-                    null
-                } else try {
-                    val connection = if (BuildConfig.DEBUG) {
-                        (URL(p0[0]).openConnection() as HttpsURLConnection).apply {
-                            sslSocketFactory = createSocketFactory(listOf("TLSv1.2"))
-                            hostnameVerifier = HostnameVerifier { _, _ -> true }
-                            readTimeout = 5_000
-                        }
+    private fun LoadImageTask(
+        builder: NotificationCompat.Builder?,
+        isPlaying: Boolean,
+        vararg p0: String?) {
+        var bitmap: Bitmap? = null
+
+        if (p0.isEmpty()) {
+            return
+        }
+
+        myExecutor.execute {
+            try {
+                val connection = if (BuildConfig.DEBUG) {
+                    (URL(p0[0]).openConnection() as HttpsURLConnection).apply {
+                        sslSocketFactory = createSocketFactory(listOf("TLSv1.2"))
+                        hostnameVerifier = HostnameVerifier { _, _ -> true }
+                        readTimeout = 5_000
+                    }
+                } else {
+                    val url = URL(p0[0])
+                    url.openConnection() as HttpURLConnection
+                }
+
+                connection.doInput = true
+                connection.connect()
+                val input = connection.inputStream
+                bitmap = BitmapFactory.decodeStream(input)
+            } catch (e: IOException) {
+                e.printStackTrace()
+                if (builder != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            builder.build(),
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                        )
                     } else {
-                        val url = URL(p0[0])
-                        url.openConnection() as HttpURLConnection
-                    }
-
-                    connection.doInput = true
-                    connection.connect()
-                    val input = connection.inputStream
-                    BitmapFactory.decodeStream(input)
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                    if (builder != null) {
                         startForeground(NOTIFICATION_ID, builder.build())
-                        if (!isPlaying) {
-                            stopForeground(false)
-                        }
                     }
-                    null
+                    if (!isPlaying) {
+                        stopForeground(false)
+                    }
                 }
+                bitmap = null
             }
+        }
 
-            override fun onPostExecute(bitmap: Bitmap?) {
-                if (bitmap == null || builder == null) {
-                    return
-                }
+        myHandler.post {
+            if (bitmap !== null && builder !== null) {
                 builder.setLargeIcon(bitmap)
-                startForeground(NOTIFICATION_ID, builder.build())
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                } else {
+                    startForeground(NOTIFICATION_ID, builder.build())
+                }
+
                 if (!isPlaying) {
                     stopForeground(false)
                 }
             }
+        }
     }
 
     // disable ssl cert for dev

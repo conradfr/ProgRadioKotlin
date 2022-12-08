@@ -13,10 +13,10 @@ android {
 
     defaultConfig {
         applicationId "io.programmes_radio.www.progradio"
-        minSdkVersion 24
+        minSdkVersion 26
         targetSdkVersion 32
-        versionCode 22
-        versionName "2.44"
+        versionCode 24
+        versionName "2.45"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,9 +39,8 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'androidx.core:core-ktx:1.8.0'
-    implementation 'androidx.appcompat:appcompat:1.4.2'
+    implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.media:media:1.6.0'
     testImplementation 'junit:junit:4.13'

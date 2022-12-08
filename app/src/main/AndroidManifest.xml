@@ -27,6 +27,7 @@
         </receiver>
 
         <service android:name=".MediaPlaybackService"
+            android:foregroundServiceType="mediaPlayback"
             android:stopWithTask="false"
             android:exported="false">
             <intent-filter>
