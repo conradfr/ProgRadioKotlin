@@ -84,9 +84,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private var playerTimer: CountDownTimer? = null
 
-    private val myExecutor = Executors.newSingleThreadExecutor()
-    private val myHandler = Handler(Looper.getMainLooper())
-
     // ----------------------------------------------------------------------------------------------------
 
     inner class BecomingNoisyReceiver : BroadcastReceiver() {
@@ -243,7 +240,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 if (data !== null) {
                     try {
                         radioCollection = Json.decodeFromString<List<Radio>>(data)
-                        buildNotification(baseContext, player?.isPlaying == true)
+                         buildNotification(baseContext, player?.isPlaying == true)
                     } catch (e: Exception) {
                         // handler
                     }
@@ -999,6 +996,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         isPlaying: Boolean,
         vararg p0: String?) {
         var bitmap: Bitmap? = null
+        var myExecutor = Executors.newSingleThreadExecutor()
+        var myHandler = Handler(Looper.getMainLooper())
 
         if (p0.isEmpty()) {
             return
@@ -1021,6 +1020,22 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 connection.connect()
                 val input = connection.inputStream
                 bitmap = BitmapFactory.decodeStream(input)
+
+                myHandler.post {
+                    if (bitmap !== null && builder !== null) {
+                        builder.setLargeIcon(bitmap)
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            startForeground(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                        } else {
+                            startForeground(NOTIFICATION_ID, builder.build())
+                        }
+
+                        if (!isPlaying) {
+                            stopForeground(false)
+                        }
+                    }
+                }
             } catch (e: IOException) {
                 e.printStackTrace()
                 if (builder != null) {
@@ -1041,21 +1056,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             }
         }
 
-        myHandler.post {
-            if (bitmap !== null && builder !== null) {
-                builder.setLargeIcon(bitmap)
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-                } else {
-                    startForeground(NOTIFICATION_ID, builder.build())
-                }
-
-                if (!isPlaying) {
-                    stopForeground(false)
-                }
-            }
-        }
     }
 
     // disable ssl cert for dev

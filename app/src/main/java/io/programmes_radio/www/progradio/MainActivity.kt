@@ -215,6 +215,7 @@ class MainActivity : AppCompatActivity() {
             EventBus.getDefault().register(this)
         }
         jsInterface?.reconnect()
+        jsInterface?.getstate()
         volumeControlStream = AudioManager.STREAM_MUSIC
     }
 
