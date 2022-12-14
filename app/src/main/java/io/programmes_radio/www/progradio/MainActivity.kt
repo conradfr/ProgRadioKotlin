@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity() {
         const val BASE_URL_API_PROD = "https://api.programmes-radio.com"
         const val BASE_URL_DEV = "https://www.programmes-radio.com"
         const val BASE_URL_API_DEV = "https://api.programmes-radio.com"
-//        const val BASE_URL_DEV = "https://local.programmes-radio.com:8080"
+//        const val BASE_URL_DEV = "https://local2.programmes-radio.com:8080"
 //        const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
     }
 

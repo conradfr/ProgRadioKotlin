@@ -15,8 +15,8 @@ android {
         applicationId "io.programmes_radio.www.progradio"
         minSdkVersion 26
         targetSdkVersion 32
-        versionCode 25
-        versionName "2.47"
+        versionCode 26
+        versionName "2.5"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -54,4 +54,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.1.0'
     implementation 'androidx.work:work-runtime-ktx:2.7.1'
     implementation("org.greenrobot:eventbus:3.3.1")
+    implementation("com.neovisionaries:nv-websocket-client:2.9")
+    implementation("com.github.openjson:openjson:1.0.11")
+    implementation("ch.kuon.phoenix:channel:0.1.9")
 }

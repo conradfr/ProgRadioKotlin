@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
+import ch.kuon.phoenix.Socket
 import com.android.volley.DefaultRetryPolicy
 import com.android.volley.Request
 import com.android.volley.RequestQueue
@@ -83,6 +84,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var radioCollection: List<Radio>? = null
 
     private var playerTimer: CountDownTimer? = null
+
+    private var socket: Socket? = null
+    private var channel: ch.kuon.phoenix.Channel? = null
+    private var song: String? = null
 
     // ----------------------------------------------------------------------------------------------------
 
@@ -178,6 +183,15 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     override fun onDestroy() {
         super.onDestroy()
 //        unregisterReceiver(myNoisyAudioStreamReceiver)
+        if (channel !== null) {
+            channel!!.leave()
+        }
+
+        song = null
+
+        if (socket !== null) {
+            socket!!.disconnect()
+        }
         mediaSession?.release()
     }
 
@@ -231,6 +245,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     )
                 )
                 intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
+
+                subscribeToChannel(extras?.getString(
+                    MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
+                ))
 
                 EventBus.getDefault().post(intent)
             }
@@ -354,7 +372,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 //            player?.reset()
 
             if (player?.isPlaying == true) {
-
                 val currentPlayingUrl = mediaSession?.controller?.metadata?.getString(
                     MediaMetadataCompat.METADATA_KEY_MEDIA_URI
                 )
@@ -497,6 +514,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
                 intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
+                subscribeToChannel(extras?.getString(
+                    MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
+                ))
+
                 EventBus.getDefault().post(intent)
             }
         }
@@ -571,6 +592,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             )
                         )
                         intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
+
+                        subscribeToChannel(mediaSession?.controller?.metadata?.getString(
+                            MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
+                        ))
 
                         EventBus.getDefault().post(intent)
                     }
@@ -748,7 +773,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 ExoPlayer.STATE_ENDED -> "ExoPlayer.STATE_ENDED     -"
                 else -> "UNKNOWN_STATE             -"
             }
-            Log.d("kikoo", "changed state to $stateString")
         }
 */
 
@@ -829,6 +853,108 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
+    private fun subscribeToChannel(channelName: String?) {
+        leaveChannel()
+        song = null
+        connectToSocket()
+
+        if (channelName === null) {
+            channelErrorUpdate()
+            return
+        }
+
+        channel = socket?.channel(channelName)
+
+        if (channel === null) {
+            channelErrorUpdate()
+            return
+        }
+
+        channel!!.on("playing") { msg ->
+            if (!msg.response.isNull("song")) {
+                val newSong = formatTitle(msg.response.getJSONObject("song"))
+                if (!newSong.equals(song)) {
+                    song = newSong
+                    updateNotification()
+                }
+            } else {
+                song = null
+                updateNotification()
+            }
+        }
+
+        channel!!
+            .join()
+            .receive("ok") { _msg ->
+                // channel did not connected
+                channelErrorUpdate()
+            }
+            .receive("error") { _msg ->
+                // channel did not connected
+                channelErrorUpdate()
+            }
+            .receive("timeout") { _msg ->
+                // connection timeout
+                channelErrorUpdate()
+            }
+    }
+
+    private fun channelErrorUpdate() {
+        song = null
+        updateNotification()
+    }
+
+    private fun updateNotification() {
+        Handler(Looper.getMainLooper()).post {
+            buildNotification(baseContext, player?.isPlaying == true)
+        }
+    }
+
+    private fun leaveChannel() {
+        if (channel !== null) {
+            channel!!.leave()
+            song = null
+            buildNotification(baseContext, player?.isPlaying == true)
+        }
+    }
+
+    private fun connectToSocket() {
+        if (socket !== null) {
+            return
+        }
+
+        val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
+        val url = "wss${baseUrl.substring(5)}/socket"
+        socket = Socket(url)
+        socket?.connect()
+    }
+
+
+    private fun formatTitle(songData: com.github.openjson.JSONObject?): String? {
+        if (songData === null ||
+            (songData.isNull("artist") && songData.isNull("title") )) {
+            return null
+        }
+
+        var song = "♫ "
+
+        if (!songData.isNull("artist")) {
+            song += songData.getString("artist")
+        }
+
+        if (!songData.isNull("title")) {
+            if (!songData.isNull("artist")) {
+                song += " - "
+            }
+
+            song += songData.getString("title")
+        }
+
+        return song
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+
     private fun createNotificationChannel() {
         val name = getString(R.string.channel_name)
         val descriptionText = getString(R.string.channel_description)
@@ -864,7 +990,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             val builder = NotificationCompat.Builder(context, CHANNEL_ID).apply {
                 // Add the metadata for the currently playing track
                 setOnlyAlertOnce(true)
-                setContentTitle(description.title)
+
+                if (song === null) {
+                    setContentTitle(description.title)
+                } else {
+                    setContentTitle(song)
+                }
+
                 setContentText(description.subtitle)
                 setSubText(description.description)
 
@@ -996,8 +1128,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         isPlaying: Boolean,
         vararg p0: String?) {
         var bitmap: Bitmap? = null
-        var myExecutor = Executors.newSingleThreadExecutor()
-        var myHandler = Handler(Looper.getMainLooper())
+        val myExecutor = Executors.newSingleThreadExecutor()
+        val myHandler = Handler(Looper.getMainLooper())
 
         if (p0.isEmpty()) {
             return
