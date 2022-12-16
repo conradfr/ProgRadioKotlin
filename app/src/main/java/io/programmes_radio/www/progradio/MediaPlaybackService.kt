@@ -41,6 +41,7 @@ import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.greenrobot.eventbus.EventBus
@@ -237,6 +238,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
+    @OptIn(ExperimentalSerializationApi::class)
     private val callback = object: MediaSessionCompat.Callback() {
         override fun onCustomAction(action: String?, extras: Bundle?) {
             if (action == "sendUpdate") {
@@ -889,14 +891,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
         channel!!
             .join()
-            .receive("ok") { _msg ->
+            .receive("ok") { _ ->
                 // cool
             }
-            .receive("error") { _msg ->
+            .receive("error") { _ ->
                 // channel did not connected
                 channelErrorUpdate()
             }
-            .receive("timeout") { _msg ->
+            .receive("timeout") { _ ->
                 // connection timeout
                 channelErrorUpdate()
             }
