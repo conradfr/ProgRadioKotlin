@@ -7,5 +7,6 @@ data class Radio(
     val codeName: String,
     val name: String,
     val streamUrl: String,
-    val pictureUrl: String?
+    val pictureUrl: String?,
+    val channelName: String?,
 )

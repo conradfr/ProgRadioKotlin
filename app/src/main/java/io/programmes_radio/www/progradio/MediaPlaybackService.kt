@@ -22,6 +22,7 @@ import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+// import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -76,6 +77,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private val myNoisyAudioStreamReceiver = BecomingNoisyReceiver()
 //    private lateinit var myPlayerNotification: MediaStyleNotification
     private var player: ExoPlayer? = null
+    private var playerIsPlaying = false
 
     private lateinit var audioFocusRequest: AudioFocusRequest
 
@@ -258,7 +260,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 if (data !== null) {
                     try {
                         radioCollection = Json.decodeFromString<List<Radio>>(data)
-                         buildNotification(baseContext, player?.isPlaying == true)
+                         updateNotification()
                     } catch (e: Exception) {
                         // handler
                     }
@@ -278,7 +280,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             EventBus.getDefault().post(intent)
                         }
                         override fun onFinish() {
-                            if (player?.isPlaying == true) {
+                            if (playerIsPlaying == true) {
                                 onStop()
 
                                 Toast.makeText(baseContext, getString(R.string.timer_end), Toast.LENGTH_SHORT).show()
@@ -336,7 +338,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .build()
                 )
 
-                buildNotification(baseContext, player?.isPlaying == true)
+                updateNotification()
             }
 
             super.onCustomAction(action, extras)
@@ -371,7 +373,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         override fun onPlayFromUri(uri: Uri?, extras: Bundle?) {
 //            player?.reset()
 
-            if (player?.isPlaying == true) {
+            if (playerIsPlaying == true) {
                 val currentPlayingUrl = mediaSession?.controller?.metadata?.getString(
                     MediaMetadataCompat.METADATA_KEY_MEDIA_URI
                 )
@@ -421,7 +423,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             .build()
                     )
 
-                    buildNotification(baseContext, true)
+                    updateNotification()
 
                     return
                 }
@@ -504,7 +506,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                 listeningSessionStart = ZonedDateTime.now()
 
-                buildNotification(baseContext, true)
+//                updateNotification()
 
                 val intent = Intent("UpdatePlaybackStatus")
                 intent.putExtra(
@@ -523,7 +525,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 
         override fun onPlay() {
-            if (player?.isPlaying == true) {
+            if (playerIsPlaying == true) {
                 return
             }
 
@@ -583,7 +585,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                         listeningSessionStart = ZonedDateTime.now()
 
-                        buildNotification(baseContext, true)
+//                        updateNotification()
 
                         val intent = Intent("UpdatePlaybackStatus")
                         intent.putExtra(
@@ -606,7 +608,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 
        override fun onPause() {
-           if (player?.isPlaying == true) {
+           if (playerIsPlaying == true) {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                // Update metadata and state
 
@@ -648,7 +650,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                unregisterReceiver(myNoisyAudioStreamReceiver)
 
                // Take the service out of the foreground, retain the notification
-               buildNotification(baseContext, false)
+//               updateNotification()
                stopForeground(false)
            }
        }
@@ -677,6 +679,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, elem.channelName)
 
            onPlayFromUri(streamUri, extra)
        }
@@ -712,12 +716,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
        }
 
        override fun onStop() {
-           if (player?.isPlaying == true) {
-               sendListeningSession(
-                   listeningSessionStart, mediaSession?.controller?.metadata?.getString(
-                       MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+           if (playerIsPlaying) {
+               Handler(Looper.getMainLooper()).post {
+                   sendListeningSession(
+                       listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+                           MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                       )
                    )
-               )
+               }
            }
 
            val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -763,20 +769,18 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     // ----------------------------------------------------------------------------------------------------
 
     inner class PlaybackStateListener : Player.Listener {
-/*
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            val stateString: String
-            stateString = when (playbackState) {
-                ExoPlayer.STATE_IDLE -> "ExoPlayer.STATE_IDLE      -"
-                ExoPlayer.STATE_BUFFERING -> "ExoPlayer.STATE_BUFFERING -"
-                ExoPlayer.STATE_READY -> "ExoPlayer.STATE_READY     -"
-                ExoPlayer.STATE_ENDED -> "ExoPlayer.STATE_ENDED     -"
-                else -> "UNKNOWN_STATE             -"
-            }
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            playerIsPlaying = isPlaying
+            updateNotification()
         }
-*/
+
+        /* override fun onPlaybackStateChanged(playbackState: Int) {
+            Log.d("TAG", playbackState.toString())
+        } */
 
         override fun onPlayerError(error: PlaybackException) {
+            playerIsPlaying = false
+
             this@MediaPlaybackService.sendListeningSession(
                 listeningSessionStart, mediaSession?.controller?.metadata?.getString(
                     MediaMetadataCompat.METADATA_KEY_MEDIA_ID
@@ -794,7 +798,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
 
             EventBus.getDefault().post(intent)
-            this@MediaPlaybackService.buildNotification(baseContext, false)
+            updateNotification()
         }
     }
 
@@ -859,7 +863,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         connectToSocket()
 
         if (channelName === null) {
-            channelErrorUpdate()
+//            channelErrorUpdate()
             return
         }
 
@@ -886,8 +890,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         channel!!
             .join()
             .receive("ok") { _msg ->
-                // channel did not connected
-                channelErrorUpdate()
+                // cool
             }
             .receive("error") { _msg ->
                 // channel did not connected
@@ -904,17 +907,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         updateNotification()
     }
 
-    private fun updateNotification() {
-        Handler(Looper.getMainLooper()).post {
-            buildNotification(baseContext, player?.isPlaying == true)
-        }
-    }
-
     private fun leaveChannel() {
         if (channel !== null) {
-            channel!!.leave()
             song = null
-            buildNotification(baseContext, player?.isPlaying == true)
+            channel!!.leave()
+            Handler(Looper.getMainLooper()).post {
+                updateNotification()
+            }
         }
     }
 
@@ -955,6 +954,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
+    private fun updateNotification() {
+        Handler(Looper.getMainLooper()).post {
+            buildNotification(baseContext)
+        }
+    }
+
     private fun createNotificationChannel() {
         val name = getString(R.string.channel_name)
         val descriptionText = getString(R.string.channel_description)
@@ -968,7 +973,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun buildNotification(context: Context, play: Boolean) {
+    private fun buildNotification(context: Context) {
         // Get the session's metadata
         val controller = mediaSession?.controller
         val mediaMetadata = controller?.metadata
@@ -1026,7 +1031,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     )
                 }
 
-                if (play) {
+                if (playerIsPlaying) {
                     // Stop the service when the notification is swiped away
 /*                    val closeIntent = Intent(applicationContext, NotificationDismissedReceiver::class.java)
 
@@ -1110,13 +1115,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
                 if (bitmapUrl !== null) {
-                    LoadImageTask(builder, play, baseUrl + bitmapUrl)
+                    LoadImageTask(builder, playerIsPlaying, baseUrl + bitmapUrl)
                 }
             } else {
                 // Display the notification and place the service in the foreground
                 builder.setLargeIcon(null)
                 startForeground(NOTIFICATION_ID, builder.build())
-                if (!play) {
+                if (!playerIsPlaying) {
                     stopForeground(false)
                 }
             }
