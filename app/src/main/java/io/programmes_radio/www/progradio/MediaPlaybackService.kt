@@ -1,8 +1,7 @@
 package io.programmes_radio.www.progradio
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
+// import android.util.Log
+import android.app.*
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -22,7 +21,6 @@ import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-// import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -87,6 +85,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var radioCollection: List<Radio>? = null
 
     private var playerTimer: CountDownTimer? = null
+
+    private var image: Image? = null
 
     private var socket: Socket? = null
     private var channel: ch.kuon.phoenix.Channel? = null
@@ -957,9 +957,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     // ----------------------------------------------------------------------------------------------------
 
     private fun updateNotification() {
-        Handler(Looper.getMainLooper()).post {
+//        Handler(Looper.getMainLooper()).post {
             buildNotification(baseContext)
-        }
+//        }
     }
 
     private fun createNotificationChannel() {
@@ -973,6 +973,30 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         val notificationManager: NotificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.createNotificationChannel(channel)
+    }
+
+    private fun startNotification(build: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        build,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    )
+                } catch (e: ForegroundServiceStartNotAllowedException) {
+                    // nothing
+                }
+            } else {
+                startForeground(
+                    NOTIFICATION_ID,
+                    build,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            }
+        } else {
+            startForeground(NOTIFICATION_ID, build)
+        }
     }
 
     private fun buildNotification(context: Context) {
@@ -1116,13 +1140,35 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) !== null) {
                 val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
+                val imageUrl = baseUrl + bitmapUrl
+
+                // Trying to avoid exception when updating the notification when stopped by an external event
+                // Because loading the picture like the current way we get a ForegroundServiceStartNotAllowedException
+                // So we try to reuse the already downloaded picture
+                // @todo refactor
                 if (bitmapUrl !== null) {
-                    LoadImageTask(builder, playerIsPlaying, baseUrl + bitmapUrl)
+                    if (image !== null && image!!.url == imageUrl) {
+                        builder.setLargeIcon(image!!.bitmap)
+                        startNotification(builder.build())
+                    } else {
+                        image = null
+
+                        // create a notification without the image first in case of exception once image downloaded
+                        // not ideal but necessary until refactor
+                        builder.setLargeIcon(null)
+                        startNotification(builder.build())
+
+                        LoadImageTask(builder, playerIsPlaying, imageUrl)
+                    }
+
+                    if (!playerIsPlaying) {
+                        stopForeground(false)
+                    }
                 }
             } else {
                 // Display the notification and place the service in the foreground
                 builder.setLargeIcon(null)
-                startForeground(NOTIFICATION_ID, builder.build())
+                startNotification(builder.build())
                 if (!playerIsPlaying) {
                     stopForeground(false)
                 }
@@ -1162,13 +1208,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                 myHandler.post {
                     if (bitmap !== null && builder !== null) {
-                        builder.setLargeIcon(bitmap)
-
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            startForeground(NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-                        } else {
-                            startForeground(NOTIFICATION_ID, builder.build())
+                        if (p0.isNotEmpty() && p0[0] is String) {
+                            image = Image(p0[0]!!, bitmap!!)
                         }
+
+                        builder.setLargeIcon(bitmap)
+                        startNotification(builder.build())
 
                         if (!isPlaying) {
                             stopForeground(false)
@@ -1176,25 +1221,18 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     }
                 }
             } catch (e: IOException) {
-                e.printStackTrace()
+//                e.printStackTrace()
                 if (builder != null) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        startForeground(
-                            NOTIFICATION_ID,
-                            builder.build(),
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                        )
-                    } else {
-                        startForeground(NOTIFICATION_ID, builder.build())
-                    }
+                    startNotification(builder.build())
+
                     if (!isPlaying) {
                         stopForeground(false)
                     }
                 }
+                image = null
                 bitmap = null
             }
         }
-
     }
 
     // disable ssl cert for dev
