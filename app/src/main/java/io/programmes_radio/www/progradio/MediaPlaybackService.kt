@@ -1072,7 +1072,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             NOTIFICATION_ID, closeIntent, 0
                         )
                     )*/
-                    setOngoing(false)
+                    setOngoing(true)
 
                     // Add a pause button
                     addAction(
