@@ -248,7 +248,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         MediaMetadataCompat.METADATA_KEY_MEDIA_ID
                     )
                 )
-                intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
+
+                if (playerIsPlaying == true) {
+                    intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)    
+                } else {
+                    intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
+                }
 
                 subscribeToChannel(extras?.getString(
                     MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
@@ -1215,20 +1220,26 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         builder.setLargeIcon(bitmap)
                         startNotification(builder.build())
 
-                        if (!isPlaying) {
+                        /* if (!isPlaying) {
                             stopForeground(false)
-                        }
+                        } */
                     }
                 }
             } catch (e: IOException) {
 //                e.printStackTrace()
-                if (builder != null) {
+/*                if (builder != null) {
                     startNotification(builder.build())
 
                     if (!isPlaying) {
                         stopForeground(false)
                     }
-                }
+                } */
+
+                image = null
+                bitmap = null
+            } catch (e: Exception) {
+                e.printStackTrace()
+
                 image = null
                 bitmap = null
             }
