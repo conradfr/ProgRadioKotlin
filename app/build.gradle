@@ -15,8 +15,8 @@ android {
         applicationId "io.programmes_radio.www.progradio"
         minSdkVersion 26
         targetSdkVersion 32
-        versionCode 33
-        versionName "2.56"
+        versionCode 34
+        versionName "2.57"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

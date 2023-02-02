@@ -686,7 +686,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
            extra.putString(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, elem.channelName)
 
            onPlayFromUri(streamUri, extra)
@@ -718,6 +717,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, elem.channelName)
 
            onPlayFromUri(streamUri, extra)
        }
@@ -887,6 +887,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 if (!newSong.equals(song)) {
                     song = newSong
                     updateNotification()
+
+                    // send to webapp
+                    val intent = Intent("UpdateSong")
+                    intent.putExtra("name", msg.response.getString("name"))
+                    intent.putExtra("topic", msg.response.getString("name"))
+                    intent.putExtra("song", msg.response.getString("song"))
+
+                    EventBus.getDefault().post(intent)
                 }
             } else {
                 song = null

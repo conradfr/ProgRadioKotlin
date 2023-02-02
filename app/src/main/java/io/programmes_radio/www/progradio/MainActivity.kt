@@ -80,6 +80,17 @@ class MainActivity : AppCompatActivity() {
 
             return;
         }
+
+        if (intent.action === "UpdateSong") {
+            mWebView!!.post {
+                mWebView!!.evaluateJavascript(
+                    "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateSong({name: '${intent.getStringExtra("name")}', topic: '${intent.getStringExtra("topic")}', song: ${intent.getStringExtra("song")}});",
+                    null
+                )
+            }
+
+            return;
+        }
     }
 
     @SuppressLint("JavascriptInterface")
