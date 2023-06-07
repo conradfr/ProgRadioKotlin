@@ -135,7 +135,7 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
             extra.putString(MediaMetadataCompat.METADATA_KEY_TITLE, showTitle)
             extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, streamUrl)
             extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, pictureUrl)
-            extra.putString(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, channelName)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, channelName)
 
             val activity = context as Activity
             val mediaController = MediaControllerCompat.getMediaController(activity)

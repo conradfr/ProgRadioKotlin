@@ -119,14 +119,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         mediaSession = MediaSessionCompat(baseContext, "ProgRadioPlayback").apply {
 
             // Set an initial PlaybackState with ACTION_PLAY, so media buttons can start the player
-            stateBuilder = PlaybackStateCompat.Builder()
-                .setActions(
-                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-                            or PlaybackStateCompat.ACTION_PLAY
-                            or PlaybackStateCompat.ACTION_PLAY_PAUSE
-                            or PlaybackStateCompat.ACTION_PAUSE
-                            or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-                )
+            stateBuilder = buildPlayBackState()
 
             setPlaybackState(stateBuilder.build())
 
@@ -238,6 +231,26 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
+    private fun buildPlayBackState(currentState: Int? = null): PlaybackStateCompat.Builder {
+        // Set an initial PlaybackState with ACTION_PLAY, so media buttons can start the player
+        stateBuilder = PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                        or PlaybackStateCompat.ACTION_PLAY
+                        or PlaybackStateCompat.ACTION_PLAY_PAUSE
+                        or PlaybackStateCompat.ACTION_PAUSE
+                        or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
+            )
+
+        if (currentState !== null) {
+            stateBuilder.setState(currentState, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0F)
+        }
+
+        return stateBuilder
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+
     @OptIn(ExperimentalSerializationApi::class)
     private val callback = object: MediaSessionCompat.Callback() {
         override fun onCustomAction(action: String?, extras: Bundle?) {
@@ -256,7 +269,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 }
 
                 subscribeToChannel(extras?.getString(
-                    MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
+                    MediaMetadataCompat.METADATA_KEY_COMPOSER
                 ))
 
                 EventBus.getDefault().post(intent)
@@ -336,6 +349,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         .putString(
                             MediaMetadataCompat.METADATA_KEY_ART_URI, extras?.getString(
                                 MediaMetadataCompat.METADATA_KEY_ART_URI
+                            )
+                        )
+                        .putString(
+                            MediaMetadataCompat.METADATA_KEY_COMPOSER, extras?.getString(
+                                MediaMetadataCompat.METADATA_KEY_COMPOSER
                             )
                         )
 /*                        .putBitmap(
@@ -427,6 +445,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                     MediaMetadataCompat.METADATA_KEY_ART_URI
                                 )
                             )
+                            .putString(
+                                MediaMetadataCompat.METADATA_KEY_COMPOSER, extras?.getString(
+                                    MediaMetadataCompat.METADATA_KEY_COMPOSER
+                                )
+                            )
                             .build()
                     )
 
@@ -485,6 +508,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                 MediaMetadataCompat.METADATA_KEY_ART_URI
                             )
                         )
+                        .putString(
+                            MediaMetadataCompat.METADATA_KEY_COMPOSER, extras?.getString(
+                                MediaMetadataCompat.METADATA_KEY_COMPOSER
+                            )
+                        )
                         .build()
                 )
 
@@ -524,7 +552,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
                 subscribeToChannel(extras?.getString(
-                    MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
+                    MediaMetadataCompat.METADATA_KEY_COMPOSER
                 ))
 
                 EventBus.getDefault().post(intent)
@@ -532,7 +560,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 
         override fun onPlay() {
-            if (playerIsPlaying == true) {
+            if (playerIsPlaying) {
                 return
             }
 
@@ -603,7 +631,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
 
                         subscribeToChannel(mediaSession?.controller?.metadata?.getString(
-                            MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER
+                            MediaMetadataCompat.METADATA_KEY_COMPOSER
                         ))
 
                         EventBus.getDefault().post(intent)
@@ -686,7 +714,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, elem.channelName)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, elem.channelName)
 
            onPlayFromUri(streamUri, extra)
        }
@@ -717,7 +745,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER, elem.channelName)
+           extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, elem.channelName)
 
            onPlayFromUri(streamUri, extra)
        }
@@ -778,6 +806,18 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     inner class PlaybackStateListener : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             playerIsPlaying = isPlaying
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Android 13 uses playbackState for notification play/pause icon&action
+                val newPlayBackState = when (isPlaying) {
+                    true -> PlaybackState.STATE_PLAYING
+                    false -> PlaybackState.STATE_PAUSED
+                }
+
+                stateBuilder = buildPlayBackState(newPlayBackState)
+                mediaSession?.setPlaybackState(stateBuilder.build())
+            }
+
             updateNotification()
         }
 
@@ -937,12 +977,17 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             return
         }
 
-        val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
+        val opts = Socket.Options()
+        opts.timeout = 5_000 // socket timeout in milliseconds
+        opts.heartbeatIntervalMs = 5_000 // heartbeat interval in milliseconds
+        opts.rejoinAfterMs = {tries -> tries * 500} // rejoin timer function
+        opts.reconnectAfterMs = {tries -> tries * 500} // reconnect timer function
+
+        val baseUrl = if (com.google.android.exoplayer2.BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
         val url = "wss${baseUrl.substring(5)}/socket"
-        socket = Socket(url)
+        socket = Socket(url, opts)
         socket?.connect()
     }
-
 
     private fun formatTitle(songData: com.github.openjson.JSONObject?): String? {
         if (songData === null ||
@@ -1171,7 +1216,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         builder.setLargeIcon(null)
                         startNotification(builder.build())
 
-                        LoadImageTask(builder, playerIsPlaying, imageUrl)
+                        loadImageTask(builder, playerIsPlaying, imageUrl)
                     }
 
                     if (!playerIsPlaying) {
@@ -1189,7 +1234,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
     }
 
-    private fun LoadImageTask(
+    private fun loadImageTask(
         builder: NotificationCompat.Builder?,
         isPlaying: Boolean,
         vararg p0: String?) {
