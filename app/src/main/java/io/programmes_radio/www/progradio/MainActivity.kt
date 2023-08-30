@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
     // Receive player update and send it to the webview vue app
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun doEvent(intent: Intent) {
-        if (intent.action === "UpdatePlaybackStatus") {
+        if (intent.action == "UpdatePlaybackStatus") {
             mWebView!!.post {
                 mWebView!!.evaluateJavascript(
                     "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateStatusFromExternalPlayer({playbackState: ${
@@ -53,7 +53,7 @@ class MainActivity : AppCompatActivity() {
             return;
         }
 
-        if (intent.action === "UpdateTimerFinish") {
+        if (intent.action == "UpdateTimerFinish") {
             mWebView!!.post {
                 mWebView!!.evaluateJavascript(
                     "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateTimerEnding(${
@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
             return;
         }
 
-        if (intent.action === "Command") {
+        if (intent.action == "Command") {
             mWebView!!.post {
                 mWebView!!.evaluateJavascript(
                     "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').commandFromExternalPlayer({command: '${
@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
             return;
         }
 
-        if (intent.action === "UpdateSong") {
+        if (intent.action == "UpdateSong") {
             mWebView!!.post {
                 mWebView!!.evaluateJavascript(
                     "document.getElementById('app').__vue_app__.config.globalProperties.\$pinia._s.get('player').updateSong({name: '${intent.getStringExtra("name")}', topic: '${intent.getStringExtra("topic")}', song: ${intent.getStringExtra("song")}});",
@@ -98,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // receiver for vue app update
-//        if (savedInstanceState === null) {
+//        if (savedInstanceState == null) {
         EventBus.getDefault().register(this);
 //        }
 
@@ -184,7 +184,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (savedInstanceState === null) {
+        if (savedInstanceState == null) {
             // Force links and redirects to open in the WebView instead of in a browser
             if (BuildConfig.DEBUG) {
                 mWebView!!.clearCache(true)

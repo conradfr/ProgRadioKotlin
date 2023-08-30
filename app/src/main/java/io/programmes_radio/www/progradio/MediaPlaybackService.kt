@@ -24,6 +24,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.getSystemService
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
@@ -35,6 +36,7 @@ import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
 import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.offline.DownloadService.startForeground
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
 import kotlinx.coroutines.launch
@@ -51,8 +53,10 @@ import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.*
 import java.util.concurrent.Executors
 import javax.net.ssl.*
+import kotlin.concurrent.timer
 
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
 private const val MY_EMPTY_MEDIA_ROOT_ID = "empty_root_id"
@@ -61,6 +65,8 @@ private const val CHANNEL_ID = "com.android.progradio.channel_1"
 private const val NOTIFICATION_ID = 666
 
 private const val LISTENING_SOURCE = "android"
+
+private const val LISTENING_SESSION_DELAY = 15000L
 
 class MediaPlaybackService : MediaBrowserServiceCompat() {
 
@@ -81,6 +87,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private lateinit var audioFocusRequest: AudioFocusRequest
 
     private var listeningSessionStart: ZonedDateTime? = null
+    private var listeningSessionId: String? = null
+    private var listeningSessionTimer: Timer? = null
 
     private var radioCollection: List<Radio>? = null
 
@@ -179,13 +187,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     override fun onDestroy() {
         super.onDestroy()
 //        unregisterReceiver(myNoisyAudioStreamReceiver)
-        if (channel !== null) {
+        if (channel != null) {
             channel!!.leave()
         }
 
         song = null
 
-        if (socket !== null) {
+        if (socket != null) {
             socket!!.disconnect()
         }
         mediaSession?.release()
@@ -242,7 +250,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         or PlaybackStateCompat.ACTION_SKIP_TO_NEXT
             )
 
-        if (currentState !== null) {
+        if (currentState != null) {
             stateBuilder.setState(currentState, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0F)
         }
 
@@ -277,7 +285,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             if (action == "setList") {
                 val data = extras?.getString("list")
-                if (data !== null) {
+                if (data != null) {
                     try {
                         radioCollection = Json.decodeFromString<List<Radio>>(data)
                          updateNotification()
@@ -291,7 +299,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             if (action == "setTimer") {
                 val minutes = extras?.getInt("minutes", 0)
-                if (minutes !== null && minutes > 0) {
+                if (minutes != null && minutes > 0) {
                     Toast.makeText(baseContext, resources.getQuantityString(R.plurals.timer_start, minutes, minutes), Toast.LENGTH_SHORT).show()
                     playerTimer = object : CountDownTimer(minutes.toLong() * 60 * 1000, 60000) {
                         override fun onTick(millisUntilFinished: Long) {
@@ -372,7 +380,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 /*        override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
             val mediaController = mediaSession?.controller
             
-            if (mediaController !== null) {
+            if (mediaController != null) {
 *//*                val pbState = mediaController.playbackState.state
 
                 if (pbState == PlaybackStateCompat.STATE_PLAYING) {
@@ -408,11 +416,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
 
                 if (!newUrl.equals(currentPlayingUrl)) {
-                    sendListeningSession(
-                        listeningSessionStart, mediaSession?.controller?.metadata?.getString(
-                            MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                        )
-                    )
+                    stopListeningSession(mediaSession?.controller?.metadata?.getString(
+                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                    ))
 
                     player?.stop()
                 } else {
@@ -539,7 +545,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 player?.prepare()
                 player?.play()
 
-                listeningSessionStart = ZonedDateTime.now()
+                startListeningSession(
+                    extras?.getString(
+                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                    )
+                )
 
 //                updateNotification()
 
@@ -595,7 +605,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         MediaMetadataCompat.METADATA_KEY_MEDIA_URI
                     )
 
-                    if (uri !== null) {
+                    if (uri != null) {
                         val event = EventBuilder()
                             .setCategory("android")
                             .setAction("play")
@@ -618,9 +628,13 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         player?.prepare()
                         player?.play()
 
-                        listeningSessionStart = ZonedDateTime.now()
-
 //                        updateNotification()
+
+                        startListeningSession(
+                            mediaSession?.controller?.metadata?.getString(
+                                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                            )
+                        )
 
                         val intent = Intent("UpdatePlaybackStatus")
                         intent.putExtra(
@@ -647,8 +661,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                // Update metadata and state
 
-               sendListeningSession(
-                   listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+               stopListeningSession(mediaSession?.controller?.metadata?.getString(
                        MediaMetadataCompat.METADATA_KEY_MEDIA_ID
                    )
                )
@@ -753,8 +766,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
        override fun onStop() {
            if (playerIsPlaying) {
                Handler(Looper.getMainLooper()).post {
-                   sendListeningSession(
-                       listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+                   stopListeningSession(
+                       mediaSession?.controller?.metadata?.getString(
                            MediaMetadataCompat.METADATA_KEY_MEDIA_ID
                        )
                    )
@@ -828,8 +841,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         override fun onPlayerError(error: PlaybackException) {
             playerIsPlaying = false
 
-            this@MediaPlaybackService.sendListeningSession(
-                listeningSessionStart, mediaSession?.controller?.metadata?.getString(
+            this@MediaPlaybackService.stopListeningSession(
+                mediaSession?.controller?.metadata?.getString(
                     MediaMetadataCompat.METADATA_KEY_MEDIA_ID
                 )
             )
@@ -851,19 +864,64 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     // ----------------------------------------------------------------------------------------------------
 
-    private fun sendListeningSession(datetimeStart: ZonedDateTime?, radioCodeName: String?) = runBlocking {
+    private fun startListeningSession(radioCodeName: String?) {
+        listeningSessionId = null
+
+        if (listeningSessionTimer != null) {
+            listeningSessionTimer!!.cancel()
+        }
+
+        listeningSessionStart = ZonedDateTime.now()
+
+        listeningSessionTimer = timer(initialDelay = LISTENING_SESSION_DELAY, period = LISTENING_SESSION_DELAY) {
+            // launch {
+                sendListeningSession(listeningSessionStart, radioCodeName, listeningSessionId)
+            // }
+        }
+    }
+
+    private fun stopListeningSession(radioCodeName: String?) {
+        if (listeningSessionTimer != null) {
+            listeningSessionTimer!!.cancel()
+            listeningSessionTimer = null;
+        }
+
+        if (listeningSessionId == null) {
+            return
+        }
+
+        sendListeningSession(listeningSessionStart, radioCodeName, listeningSessionId, true)
+
+        listeningSessionId = null
+        listeningSessionStart = null
+    }
+
+    private fun sendListeningSession(dateTimeStart: ZonedDateTime?, radioCodeName: String?, listeningSessionId: String? = null, ending: Boolean? = false) = runBlocking {
         launch {
-            if (datetimeStart !== null && radioCodeName !== null) {
+            if (dateTimeStart != null && radioCodeName != null) {
                 val formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
                 val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
-                val mURL = "$baseUrl/listening_session"
+                var mURL = "$baseUrl/listening_session"
+
+                if (listeningSessionId != null) {
+                    mURL += "/$listeningSessionId"
+                }
 
                 val values = JSONObject()
-                values.put("id", radioCodeName)
-                values.put("date_time_start", datetimeStart.format(formatter))
+                values.put("date_time_start", dateTimeStart.format(formatter))
                 values.put("date_time_end", ZonedDateTime.now().format(formatter))
-                values.put("source", LISTENING_SOURCE)
+
+                if (listeningSessionId == null) {
+                    values.put("id", radioCodeName)
+                    values.put("source", LISTENING_SOURCE)
+                } else {
+                    values.put("code_name", radioCodeName)
+
+                    if (ending == true) {
+                        values.put("ending", true)
+                    }
+                }
 
                 var que: RequestQueue
 
@@ -885,13 +943,24 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     que = Volley.newRequestQueue(baseContext)
                 }
 
-                val req = JsonObjectRequest(Request.Method.POST, mURL, values,
-                    { _ ->
-//                    println(response["msg"].toString())
+                val method = if (listeningSessionId != null) Request.Method.PUT else Request.Method.POST
 
-                    }, { _ ->
-                        // println(error.toString())
+                val req = JsonObjectRequest(method, mURL, values,
+                    { data ->
+                        if (data != null && data.has("id")) {
+                            // api returned a new session instead of updating
+                            if (this@MediaPlaybackService.listeningSessionId != null && this@MediaPlaybackService.listeningSessionId != data.get("id") as String) {
+                                this@MediaPlaybackService.listeningSessionStart = ZonedDateTime.parse(data.get("date_time_start") as String)
+                            }
+
+                            this@MediaPlaybackService.listeningSessionId = data.get("id") as String
+                        } /* else {
+                            stopListeningSession(radioCodeName)
+                        } */
+                    }, { error ->
+//                        stopListeningSession(radioCodeName)
                     })
+
                 req.retryPolicy = DefaultRetryPolicy(
                     0,
                     DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
@@ -909,14 +978,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         song = null
         connectToSocket()
 
-        if (channelName === null) {
+        if (channelName == null) {
 //            channelErrorUpdate()
             return
         }
 
         channel = socket?.channel(channelName)
 
-        if (channel === null) {
+        if (channel == null) {
             channelErrorUpdate()
             return
         }
@@ -963,7 +1032,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     private fun leaveChannel() {
-        if (channel !== null) {
+        if (channel != null) {
             song = null
             channel!!.leave()
             Handler(Looper.getMainLooper()).post {
@@ -973,7 +1042,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     private fun connectToSocket() {
-        if (socket !== null) {
+        if (socket != null) {
             return
         }
 
@@ -990,7 +1059,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     private fun formatTitle(songData: com.github.openjson.JSONObject?): String? {
-        if (songData === null ||
+        if (songData == null ||
             (songData.isNull("artist") && songData.isNull("title") )) {
             return null
         }
@@ -1080,7 +1149,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 // Add the metadata for the currently playing track
                 setOnlyAlertOnce(true)
 
-                if (song === null) {
+                if (song == null) {
                     setContentTitle(description.title)
                 } else {
                     setContentTitle(song)
@@ -1195,7 +1264,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         )*/
             }
 
-            if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) !== null) {
+            if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) != null) {
                 val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
                 val imageUrl = baseUrl + bitmapUrl
@@ -1204,8 +1273,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 // Because loading the picture like the current way we get a ForegroundServiceStartNotAllowedException
                 // So we try to reuse the already downloaded picture
                 // @todo refactor
-                if (bitmapUrl !== null) {
-                    if (image !== null && image!!.url == imageUrl) {
+                if (bitmapUrl != null) {
+                    if (image != null && image!!.url == imageUrl) {
                         builder.setLargeIcon(image!!.bitmap)
                         startNotification(builder.build())
                     } else {
@@ -1265,7 +1334,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 bitmap = BitmapFactory.decodeStream(input)
 
                 myHandler.post {
-                    if (bitmap !== null && builder !== null) {
+                    if (bitmap != null && builder != null) {
                         if (p0.isNotEmpty() && p0[0] is String) {
                             image = Image(p0[0]!!, bitmap!!)
                         }
