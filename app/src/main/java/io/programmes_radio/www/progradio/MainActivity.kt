@@ -27,6 +27,8 @@ class MainActivity : AppCompatActivity() {
 //        const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
     }
 
+    private val internalLinks = arrayOf<String>("radio-addict.com", "programmes-radio.com", "localhost")
+
     private var jsInterface: WebAppInterface? = null
     private var mWebView: WebView? = null
 
@@ -181,6 +183,23 @@ class MainActivity : AppCompatActivity() {
                     // Tell the WebView that permission has been granted
                     callback.invoke(origin, true, false)
                 }
+            }
+        }
+
+        mWebView!!.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+                view: WebView,
+                request: WebResourceRequest
+            ): Boolean {
+                val isInternalLink = internalLinks.any { request.url.toString().contains(it) }
+
+                if (isInternalLink) {
+                    return false;
+                }
+
+                val intent = Intent(Intent.ACTION_VIEW, request.url)
+                view.context.startActivity(intent)
+                return true
             }
         }
 

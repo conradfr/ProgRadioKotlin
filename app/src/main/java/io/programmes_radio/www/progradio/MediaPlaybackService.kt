@@ -24,7 +24,6 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
@@ -36,7 +35,6 @@ import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
 import com.google.android.exoplayer2.*
-import com.google.android.exoplayer2.offline.DownloadService.startForeground
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
 import kotlinx.coroutines.launch
@@ -817,6 +815,24 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     // ----------------------------------------------------------------------------------------------------
 
     inner class PlaybackStateListener : Player.Listener {
+/*        override fun onPlaybackStateChanged(state: Int) {
+            playerIsPlaying = state == PlaybackState.STATE_PLAYING
+
+            // Android 13 uses playbackState for notification play/pause icon&action
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val newPlayBackState = when (state) {
+                    PlaybackState.STATE_PLAYING -> PlaybackState.STATE_PLAYING
+                    PlaybackState.STATE_BUFFERING -> PlaybackState.STATE_BUFFERING
+                    else -> PlaybackState.STATE_PAUSED
+                }
+
+                stateBuilder = buildPlayBackState(newPlayBackState)
+                mediaSession?.setPlaybackState(stateBuilder.build())
+            }
+
+            updateNotification()
+        }*/
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             playerIsPlaying = isPlaying
 
@@ -824,7 +840,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 // Android 13 uses playbackState for notification play/pause icon&action
                 val newPlayBackState = when (isPlaying) {
                     true -> PlaybackState.STATE_PLAYING
-                    false -> PlaybackState.STATE_PAUSED
+                    false ->
+                        if (player !== null && player?.playbackState == PlaybackState.STATE_BUFFERING) {
+                            PlaybackState.STATE_BUFFERING
+                        } else {
+                            PlaybackState.STATE_PAUSED
+                        }
                 }
 
                 stateBuilder = buildPlayBackState(newPlayBackState)
