@@ -10,7 +10,7 @@
     <string name="permission_location_rationale">Partager votre localisation ?</string>
     <string name="timer_end">Lecture arrêtée (minuteur)</string>
     <string name="timer_cancelled">Minuteur annulé</string>
-    <string name="android_version_error">Votre version d\'Android ne permet pas cette fonctionnalité.</string>
+    <string name="android_version_error">Votre version d\'Android ne gère pas cette fonctionnalité</string>
     <plurals name="timer_start">
         <item quantity="one">La lecture s\'arrêtera dans 1 minute</item>
         <item quantity="other">La lecture s\'arrêtera dans %d minutes</item>

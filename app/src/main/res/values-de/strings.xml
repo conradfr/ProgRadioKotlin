@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">Internetradio</string>
+    <string name="channel_description">Player-Steuerung</string>
+    <string name="pause">Pause</string>
+    <string name="play">Abspielen</string>
+    <string name="previous">Zurück</string>
+    <string name="next">Weiter</string>
+    <string name="playing_error">Wiedergabefehler</string>
+    <string name="permission_location_rationale">Standort freigeben?</string>
+    <string name="timer_end">Wiedergabe angehalten (Timer)</string>
+    <string name="timer_cancelled">dDer Timer wurde storniert</string>
+    <string name="android_version_error">Your Android version does not support this feature</string>
+    <plurals name="timer_start">
+        <item quantity="one">Die Wiedergabe wird in 1 Minute stoppen</item>
+        <item quantity="other">Die Wiedergabe wird in %d Minuten stoppen</item>
+    </plurals>
+</resources>

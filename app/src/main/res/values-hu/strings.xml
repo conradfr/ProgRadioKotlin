@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">Online rádió</string>
+    <string name="channel_description">Lejátszó vezérlések</string>
+    <string name="pause">Szünet</string>
+    <string name="play">Lejátszás</string>
+    <string name="previous">Előző</string>
+    <string name="next">Következő</string>
+    <string name="playing_error">Lejátszási hiba</string>
+    <string name="permission_location_rationale">Megosztja a helyzetét?</string>
+    <string name="timer_end">Lejátszás leállítva (időzóra)</string>
+    <string name="timer_cancelled">Időzóra törölve</string>
+    <string name="android_version_error">Your Android version does not support this feature</string>
+    <plurals name="timer_start">
+        <item quantity="one">A lejátszás 1 perc múlva leáll</item>
+        <item quantity="other">A lejátszás %d perc múlva leáll</item>
+    </plurals>
+</resources>
