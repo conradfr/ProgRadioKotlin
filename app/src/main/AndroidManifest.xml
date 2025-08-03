@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" >
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -9,15 +11,19 @@
 
     <application
         android:name="ProgRadioApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme"
+        android:theme="@style/Theme.ProgrammesRadio"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:launchMode="singleInstance"
         android:usesCleartextTraffic="true"
-        android:alwaysRetainTaskState="true">
+        android:alwaysRetainTaskState="true"
+        tools:targetApi="31" >
 
         <receiver android:name="androidx.media.session.MediaButtonReceiver"
             android:exported="true">
@@ -32,12 +38,15 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="io.programmes_radio.www.progradio.MediaBrowserService" />
+                <action android:name="androidx.media3.session.MediaLibraryService"/>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </service>
 
-        <activity android:name=".MainActivity"
-            android:exported="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.ProgrammesRadio" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

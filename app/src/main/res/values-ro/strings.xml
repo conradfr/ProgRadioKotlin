@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">Radio online</string>
+    <string name="channel_description">Controalele player-ului</string>
+    <string name="pause">Pauză</string>
+    <string name="play">Redare</string>
+    <string name="previous">Anterior</string>
+    <string name="next">Următorul</string>
+    <string name="playing_error">Eroare la redare</string>
+    <string name="permission_location_rationale">Împărtășești locația ta?</string>
+    <string name="timer_end">Temporizatorul a fost anulat</string>
+    <string name="timer_cancelled">Temporizatorul a fost anulat</string>
+    <string name="android_version_error">Your Android version does not support this feature</string>
+    <plurals name="timer_start">
+        <item quantity="one">Redarea se va opri în 1 minut</item>
+        <item quantity="other">Redarea se va opri în %d minute</item>
+        <item quantity="few">La reproducción se detendrá en %d minutos</item>
+    </plurals>
+</resources>

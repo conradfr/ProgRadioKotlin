@@ -71,6 +71,10 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
     }
 
     fun reconnect() {
+        if (::mediaBrowser.isInitialized && mediaBrowser.isConnected) {
+            mediaBrowser.disconnect() // Disconnect first to avoid leaks
+        }
+
         mediaBrowser = MediaBrowserCompat(
             context,
             ComponentName(context, MediaPlaybackService::class.java),
@@ -78,7 +82,9 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
             null // optional Bundle
         )
 
-        mediaBrowser.connect()
+        if (!mediaBrowser.isConnected) { // Only connect if not already connected
+            mediaBrowser.connect()
+        }
     }
 
     private var controllerCallback = object : MediaControllerCompat.Callback() {
@@ -89,9 +95,12 @@ class WebAppInterface(val context: Context) : LifecycleObserver {
     }
 
     fun mediaSessionDisconnect() {
-        val activity = context as Activity
+        val activity = context as? Activity ?: return
         MediaControllerCompat.getMediaController(activity)?.unregisterCallback(controllerCallback)
-        mediaBrowser.disconnect()
+
+        if (mediaBrowser.isConnected) {
+            mediaBrowser.disconnect()
+        }
     }
 
     fun buildTransportControls() {

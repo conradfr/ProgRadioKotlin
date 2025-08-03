@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">Rádio online</string>
+    <string name="channel_description">Controles do player</string>
+    <string name="pause">Pausa</string>
+    <string name="play">Reproduzir</string>
+    <string name="previous">Anterior</string>
+    <string name="next">Próxima</string>
+    <string name="playing_error">Erro de reprodução</string>
+    <string name="permission_location_rationale">Compartilhar sua localização?</string>
+    <string name="timer_end">Reprodução parada (temporizador)</string>
+    <string name="timer_cancelled">Temporizador cancelado</string>
+    <string name="android_version_error">Your Android version does not support this feature</string>
+    <plurals name="timer_start">
+        <item quantity="one">A reprodução irá parar em %s minuto</item>
+        <item quantity="other">A reprodução irá parar em %d minutos</item>
+        <item quantity="many">A reprodução irá parar em %d minutos</item>
+    </plurals>
+</resources>

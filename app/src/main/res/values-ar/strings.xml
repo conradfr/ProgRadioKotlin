@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Programmes Radio</string>
+    <string name="channel_name">راديو البث المباشر</string>
+    <string name="channel_description">عناصر تحكم المشغل</string>
+    <string name="pause">إيقاف مؤقت</string>
+    <string name="play">تشغيل</string>
+    <string name="previous">السابق</string>
+    <string name="next">التالي</string>
+    <string name="playing_error">خطأ في التشغيل</string>
+    <string name="permission_location_rationale">مشاركة موقعك؟</string>
+    <string name="timer_end">تم إيقاف التشغيل (المؤقت)</string>
+    <string name="timer_cancelled">تم إلغاء المؤقت</string>
+    <string name="android_version_error">Your Android version does not support this feature</string>
+    <plurals name="timer_start">
+        <item quantity="one">سيتم إيقاف التشغيل بعد دقيقة واحدة</item>
+        <item quantity="zero"> واحدةسيتم إيقاف التشغيل بعد %d دقائق</item>
+        <item quantity="two"> واحدةسيتم إيقاف التشغيل بعد %d دقائق</item>
+        <item quantity="other"> واحدةسيتم إيقاف التشغيل بعد %d دقائق</item>
+        <item quantity="few"> واحدةسيتم إيقاف التشغيل بعد %d دقائق</item>
+        <item quantity="many"> واحدةسيتم إيقاف التشغيل بعد %d دقائق</item>
+    </plurals>
+</resources>

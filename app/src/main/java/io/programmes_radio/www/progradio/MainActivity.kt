@@ -1,30 +1,40 @@
 package io.programmes_radio.www.progradio
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.net.http.SslError
 import android.os.Bundle
-import android.webkit.*
-import androidx.appcompat.app.AppCompatActivity
+import android.webkit.GeolocationPermissions
+import android.webkit.SslErrorHandler
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import androidx.core.util.TypedValueCompat.pxToDp
+import androidx.core.view.WindowInsetsCompat.Type.displayCutout
+import androidx.core.view.WindowInsetsCompat.Type.ime
+import androidx.core.view.WindowInsetsCompat.Type.systemBars
+import androidx.core.view.ViewCompat;
 
-class MainActivity : AppCompatActivity() {
-
+class MainActivity : ComponentActivity() {
     companion object {
         const val BASE_URL_PROD = "https://www.programmes-radio.com"
         const val BASE_URL_API_PROD = "https://api.programmes-radio.com"
-        const val BASE_URL_DEV = "https://www.programmes-radio.com"
+        const val BASE_URL_DEV = "https://www.programmes-radio.com/"
         const val BASE_URL_API_DEV = "https://api.programmes-radio.com"
-//        const val BASE_URL_DEV = "https://local2.programmes-radio.com:8080"
-//        const val BASE_URL_API_DEV = "https://local2.programmes-radio.com:8080/api"
+//        const val BASE_URL_DEV = "https://7b995044ada8.ngrok-free.app"
+//        const val BASE_URL_API_DEV = "https://fb92476b9c34.ngrok-free.app:4001"
     }
 
     private val internalLinks = arrayOf<String>("radio-addict.com", "programmes-radio.com", "localhost")
@@ -95,9 +105,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("JavascriptInterface")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // receiver for vue app update
 //        if (savedInstanceState == null) {
@@ -110,9 +120,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(mWebView)
 
         jsInterface = WebAppInterface(this)
-        if (jsInterface != null) {
-            mWebView!!.addJavascriptInterface(jsInterface!!, "Android")
-        }
+        mWebView!!.addJavascriptInterface(jsInterface!!, "Android")
 
         mWebView!!.webViewClient = object : WebViewClient() {
             override fun onReceivedSslError(
@@ -201,6 +209,38 @@ class MainActivity : AppCompatActivity() {
                 view.context.startActivity(intent)
                 return true
             }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                // dispatch insets because insets aren't applied when the webpage first loads.
+                view.requestApplyInsets()
+            }
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(mWebView) { _, windowInsets ->
+            // Retrieve insets as raw pixels
+            val safeDrawingInsets = windowInsets.getInsets(
+                systemBars() or displayCutout() or ime()
+            )
+            val displayMetrics = mWebView!!.context.resources.displayMetrics
+
+            // Convert raw pixels to density independent pixels
+            val top = pxToDp(safeDrawingInsets.top.toFloat(), displayMetrics)
+            val right = pxToDp(safeDrawingInsets.right.toFloat(), displayMetrics)
+            val bottom = pxToDp(safeDrawingInsets.bottom.toFloat(), displayMetrics)
+            val left = pxToDp(safeDrawingInsets.left.toFloat(), displayMetrics)
+
+            val safeAreaJs = """
+                document.documentElement.style.setProperty('--safe-area-inset-top', '${top}px');
+                document.documentElement.style.setProperty('--safe-area-inset-right', '${right}px');
+                document.documentElement.style.setProperty('--safe-area-inset-bottom', '${bottom}px');
+                document.documentElement.style.setProperty('--safe-area-inset-left', '${left}px');
+            """
+
+            // Inject the density independent pixels into the CSS variables as CSS pixels
+            mWebView!!.evaluateJavascript(safeAreaJs, null)
+
+            windowInsets
         }
 
         if (savedInstanceState == null) {
@@ -214,51 +254,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            MY_PERMISSIONS_REQUEST_LOCATION -> {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    mGeoLocationCallback.invoke(mGeoLocationRequestOrigin, true, false)
-                } else {
-                    mGeoLocationCallback.invoke(mGeoLocationRequestOrigin, false, false)
-                }
-            }
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (mWebView!!.canGoBack()) {
-            mWebView!!.goBack()
-        } else {
-            super.onBackPressed()
-        }
-    }
-
-    public override fun onResume() {
-        super.onResume()
-        if (!EventBus.getDefault().isRegistered(this)) {
-            EventBus.getDefault().register(this)
-        }
-        jsInterface?.reconnect()
-        jsInterface?.getstate()
-        volumeControlStream = AudioManager.STREAM_MUSIC
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        mWebView!!.saveState(outState)
+        mWebView?.saveState(outState) // Save WebView state
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         super.onRestoreInstanceState(savedInstanceState)
-        mWebView!!.restoreState(savedInstanceState)
+
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this);
+        }
+
+        mWebView?.restoreState(savedInstanceState) // Restore WebView state
+        jsInterface?.reconnect()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this)
+        }
+        jsInterface?.reconnect() // Optional: Reconnect media session if needed
     }
 
     override fun onPause() {
@@ -273,7 +290,13 @@ class MainActivity : AppCompatActivity() {
         if (EventBus.getDefault().isRegistered(this)) {
             EventBus.getDefault().unregister(this)
         }
-        CookieManager.getInstance().flush();
         jsInterface?.mediaSessionDisconnect()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        EventBus.getDefault().unregister(this)
+        jsInterface?.mediaSessionDisconnect()
+        mWebView?.destroy()
     }
 }

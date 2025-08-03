@@ -9,12 +9,12 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY
 import android.media.AudioManager.OnAudioFocusChangeListener
 import android.media.session.PlaybackState
+import android.media.AudioAttributes
 import android.net.Uri
 import android.os.*
 import android.support.v4.media.MediaBrowserCompat
@@ -25,6 +25,7 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
+import androidx.media3.session.MediaLibraryService
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
 import ch.kuon.phoenix.Socket
@@ -34,13 +35,15 @@ import com.android.volley.RequestQueue
 import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
-import com.google.android.exoplayer2.*
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.greenrobot.eventbus.EventBus
 import org.json.JSONObject
@@ -62,6 +65,7 @@ private const val MY_EMPTY_MEDIA_ROOT_ID = "empty_root_id"
 private const val CHANNEL_ID = "com.android.progradio.channel_1"
 private const val NOTIFICATION_ID = 666
 
+
 private const val LISTENING_SOURCE = "android"
 
 private const val LISTENING_SESSION_DELAY = 15000L
@@ -78,7 +82,6 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private lateinit var afChangeListener: OnAudioFocusChangeListener
     private lateinit var playbackStateListener: Player.Listener
     private val myNoisyAudioStreamReceiver = BecomingNoisyReceiver()
-//    private lateinit var myPlayerNotification: MediaStyleNotification
     private var player: ExoPlayer? = null
     private var playerIsPlaying = false
 
@@ -139,11 +142,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
             player = ExoPlayer.Builder(baseContext).build()
             player?.addListener(playbackStateListener)
-/*            val trackSelector = DefaultTrackSelector(baseContext)
-            player?.addAnalyticsListener(EventLogger(trackSelector))*/
+            /*            val trackSelector = DefaultTrackSelector(baseContext)
+                        player?.addAnalyticsListener(EventLogger(trackSelector))*/
 
             player?.setAudioAttributes(
-                com.google.android.exoplayer2.audio.AudioAttributes.DEFAULT,
+                androidx.media3.common.AudioAttributes.DEFAULT,
                 false
             )
 
@@ -174,10 +177,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         // Temporary loss of audio focus - expect to get it back - you can keep your resources around
                         this@MediaPlaybackService.callback.onPause()
                     }
-/*                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Log.e(
-                        TAG,
-                        "AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK"
-                    )*/
+                    /*                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Log.e(
+                                            TAG,
+                                            "AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK"
+                                        )*/
                 }
             }
     }
@@ -268,8 +271,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     )
                 )
 
-                if (playerIsPlaying == true) {
-                    intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)    
+                if (playerIsPlaying) {
+                    intent.putExtra("playbackState", PlaybackState.STATE_PLAYING)
                 } else {
                     intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
                 }
@@ -286,7 +289,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 if (data != null) {
                     try {
                         radioCollection = Json.decodeFromString<List<Radio>>(data)
-                         updateNotification()
+                        updateNotification()
                     } catch (e: Exception) {
                         // handler
                     }
@@ -362,10 +365,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                 MediaMetadataCompat.METADATA_KEY_COMPOSER
                             )
                         )
-/*                        .putBitmap(
-                            MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
-                            BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-                        )*/
+                        /*                        .putBitmap(
+                                                    MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
+                                                    BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
+                                                )*/
                         .build()
                 )
 
@@ -375,11 +378,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             super.onCustomAction(action, extras)
         }
 
-/*        override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
-            val mediaController = mediaSession?.controller
-            
-            if (mediaController != null) {
-*//*                val pbState = mediaController.playbackState.state
+        /*        override fun onMediaButtonEvent(mediaButtonEvent: Intent?): Boolean {
+                    val mediaController = mediaSession?.controller
+
+                    if (mediaController != null) {
+        *//*                val pbState = mediaController.playbackState.state
 
                 if (pbState == PlaybackStateCompat.STATE_PLAYING) {
                     mediaController.transportControls.pause()
@@ -654,184 +657,192 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             }
         }
 
-       override fun onPause() {
-           if (playerIsPlaying == true) {
+        override fun onPause() {
+            if (playerIsPlaying == true) {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-               // Update metadata and state
+                // Update metadata and state
 
-               stopListeningSession(mediaSession?.controller?.metadata?.getString(
-                       MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                   )
-               )
+                stopListeningSession(mediaSession?.controller?.metadata?.getString(
+                    MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                )
+                )
 
-               val event = EventBuilder()
-                   .setCategory("android")
-                   .setAction("pause")
-                   .setValue(1)
+                val event = EventBuilder()
+                    .setCategory("android")
+                    .setAction("pause")
+                    .setValue(1)
 
-               val label = mediaSession?.controller?.metadata?.getString(
-                   MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-               )
+                val label = mediaSession?.controller?.metadata?.getString(
+                    MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                )
 
-               if (label != null) {
-                   event.setLabel(label)
-               }
+                if (label != null) {
+                    event.setLabel(label)
+                }
 
-               mTracker?.send(
-                   event.build()
-               )
+                mTracker?.send(
+                    event.build()
+                )
 
-               val radioCodeName = mediaSession?.controller?.metadata?.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)
+                val radioCodeName = mediaSession?.controller?.metadata?.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)
 
-               val intent = Intent("UpdatePlaybackStatus")
-               intent.putExtra("radioCodeName", radioCodeName)
-               intent.putExtra("playbackState", PlaybackState.STATE_PAUSED)
+                val intent = Intent("UpdatePlaybackStatus")
+                intent.putExtra("radioCodeName", radioCodeName)
+                intent.putExtra("playbackState", PlaybackState.STATE_PAUSED)
 
-               EventBus.getDefault().post(intent)
+                EventBus.getDefault().post(intent)
 
-               // pause the player (custom call)
-               player?.pause()
+                // pause the player (custom call)
+                player?.pause()
 
-               // unregister BECOME_NOISY BroadcastReceiver
-               unregisterReceiver(myNoisyAudioStreamReceiver)
+                // unregister BECOME_NOISY BroadcastReceiver
+                unregisterReceiver(myNoisyAudioStreamReceiver)
 
-               // Take the service out of the foreground, retain the notification
+                // Take the service out of the foreground, retain the notification
 //               updateNotification()
-               stopForeground(false)
-           }
-       }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    stopForeground(Service.STOP_FOREGROUND_LEGACY)
+                } else {
+                    stopForeground(false)
+                }
+            }
+        }
 
-       override fun onSkipToPrevious() {
-           if (radioCollection == null || radioCollection!!.size < 2) {
-               return;
-           }
+        override fun onSkipToPrevious() {
+            if (radioCollection == null || radioCollection!!.size < 2) {
+                return;
+            }
 
-           val currentRadioCodeName = mediaSession?.controller?.metadata?.getString(
-               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-           ) ?: return
+            val currentRadioCodeName = mediaSession?.controller?.metadata?.getString(
+                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+            ) ?: return
 
-           val currentIndex = radioCollection!!.indexOfFirst { it.codeName == currentRadioCodeName }
-           var nextIndex = currentIndex - 1
+            val currentIndex = radioCollection!!.indexOfFirst { it.codeName == currentRadioCodeName }
+            var nextIndex = currentIndex - 1
 
-           if (nextIndex < 0) {
-               nextIndex = radioCollection!!.size - 1
-           }
+            if (nextIndex < 0) {
+                nextIndex = radioCollection!!.size - 1
+            }
 
-           val elem = radioCollection!![nextIndex]
+            val elem = radioCollection!![nextIndex]
 
-           val streamUri = Uri.parse(elem.streamUrl)
-           val extra = Bundle()
-           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, elem.codeName)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, elem.channelName)
+            val streamUri = Uri.parse(elem.streamUrl)
+            val extra = Bundle()
+            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, elem.codeName)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, elem.channelName)
 
-           onPlayFromUri(streamUri, extra)
-       }
+            onPlayFromUri(streamUri, extra)
+        }
 
-       override fun onSkipToNext() {
-           if (radioCollection == null || radioCollection!!.size < 2) {
-               return;
-           }
+        override fun onSkipToNext() {
+            if (radioCollection == null || radioCollection!!.size < 2) {
+                return;
+            }
 
-           val currentRadioCodeName = mediaSession?.controller?.metadata?.getString(
-               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-           ) ?: return
+            val currentRadioCodeName = mediaSession?.controller?.metadata?.getString(
+                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+            ) ?: return
 
-           val currentIndex = radioCollection!!.indexOfFirst {
-               it.codeName == currentRadioCodeName
-           }
-           var nextIndex = currentIndex + 1
+            val currentIndex = radioCollection!!.indexOfFirst {
+                it.codeName == currentRadioCodeName
+            }
+            var nextIndex = currentIndex + 1
 
-           if (nextIndex + 1 > radioCollection!!.size) {
-               nextIndex = 0
-           }
+            if (nextIndex + 1 > radioCollection!!.size) {
+                nextIndex = 0
+            }
 
-           val elem = radioCollection!![nextIndex]
+            val elem = radioCollection!![nextIndex]
 
-           val streamUri = Uri.parse(elem.streamUrl)
-           val extra = Bundle()
-           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, elem.codeName)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
-           extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, elem.channelName)
+            val streamUri = Uri.parse(elem.streamUrl)
+            val extra = Bundle()
+            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, elem.codeName)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, elem.name)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, elem.streamUrl)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, elem.pictureUrl)
+            extra.putString(MediaMetadataCompat.METADATA_KEY_COMPOSER, elem.channelName)
 
-           onPlayFromUri(streamUri, extra)
-       }
+            onPlayFromUri(streamUri, extra)
+        }
 
-       override fun onStop() {
-           if (playerIsPlaying) {
-               Handler(Looper.getMainLooper()).post {
-                   stopListeningSession(
-                       mediaSession?.controller?.metadata?.getString(
-                           MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-                       )
-                   )
-               }
-           }
+        override fun onStop() {
+            if (playerIsPlaying) {
+                Handler(Looper.getMainLooper()).post {
+                    stopListeningSession(
+                        mediaSession?.controller?.metadata?.getString(
+                            MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+                        )
+                    )
+                }
+            }
 
-           val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-           // Abandon audio focus
-           am.abandonAudioFocusRequest(audioFocusRequest)
-           unregisterReceiver(myNoisyAudioStreamReceiver)
-           // Stop the service
-           stopSelf()
-           // Set the session inactive  (and update metadata and state)
-           mediaSession?.isActive = false
+            val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            // Abandon audio focus
+            am.abandonAudioFocusRequest(audioFocusRequest)
+            unregisterReceiver(myNoisyAudioStreamReceiver)
+            // Stop the service
+            stopSelf()
+            // Set the session inactive  (and update metadata and state)
+            mediaSession?.isActive = false
 
             // stop the player (custom call)
-           player?.stop()
+            player?.stop()
 
-           val event = EventBuilder()
-               .setCategory("android")
-               .setAction("pause")
-               .setValue(1)
+            val event = EventBuilder()
+                .setCategory("android")
+                .setAction("pause")
+                .setValue(1)
 
-           val label = mediaSession?.controller?.metadata?.getString(
-               MediaMetadataCompat.METADATA_KEY_MEDIA_ID
-           )
+            val label = mediaSession?.controller?.metadata?.getString(
+                MediaMetadataCompat.METADATA_KEY_MEDIA_ID
+            )
 
-           if (label != null) {
-               event.setLabel(label)
-           }
+            if (label != null) {
+                event.setLabel(label)
+            }
 
-           mTracker?.send(
-               event.build()
-           )
+            mTracker?.send(
+                event.build()
+            )
 
-           val intent = Intent("UpdatePlaybackStatus")
-           intent.putExtra("radioCodeName", "rtl")
-           intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
+            val intent = Intent("UpdatePlaybackStatus")
+            intent.putExtra("radioCodeName", "rtl")
+            intent.putExtra("playbackState", PlaybackState.STATE_STOPPED)
 
-           EventBus.getDefault().post(intent)
+            EventBus.getDefault().post(intent)
 
-           // Take the service out of the foreground
-           stopForeground(false)
-       }
+            // Take the service out of the foreground
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                stopForeground(Service.STOP_FOREGROUND_LEGACY)
+            } else {
+                stopForeground(false)
+            }
+        }
     }
 
     // ----------------------------------------------------------------------------------------------------
 
     inner class PlaybackStateListener : Player.Listener {
-/*        override fun onPlaybackStateChanged(state: Int) {
-            playerIsPlaying = state == PlaybackState.STATE_PLAYING
+        /*        override fun onPlaybackStateChanged(state: Int) {
+                    playerIsPlaying = state == PlaybackState.STATE_PLAYING
 
-            // Android 13 uses playbackState for notification play/pause icon&action
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val newPlayBackState = when (state) {
-                    PlaybackState.STATE_PLAYING -> PlaybackState.STATE_PLAYING
-                    PlaybackState.STATE_BUFFERING -> PlaybackState.STATE_BUFFERING
-                    else -> PlaybackState.STATE_PAUSED
-                }
+                    // Android 13 uses playbackState for notification play/pause icon&action
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        val newPlayBackState = when (state) {
+                            PlaybackState.STATE_PLAYING -> PlaybackState.STATE_PLAYING
+                            PlaybackState.STATE_BUFFERING -> PlaybackState.STATE_BUFFERING
+                            else -> PlaybackState.STATE_PAUSED
+                        }
 
-                stateBuilder = buildPlayBackState(newPlayBackState)
-                mediaSession?.setPlaybackState(stateBuilder.build())
-            }
+                        stateBuilder = buildPlayBackState(newPlayBackState)
+                        mediaSession?.setPlaybackState(stateBuilder.build())
+                    }
 
-            updateNotification()
-        }*/
+                    updateNotification()
+                }*/
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             playerIsPlaying = isPlaying
@@ -896,7 +907,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
         listeningSessionTimer = timer(initialDelay = LISTENING_SESSION_DELAY, period = LISTENING_SESSION_DELAY) {
             // launch {
-                sendListeningSession(listeningSessionStart, radioCodeName, listeningSessionId)
+            sendListeningSession(listeningSessionStart, radioCodeName, listeningSessionId)
             // }
         }
     }
@@ -944,7 +955,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     }
                 }
 
-                var que: RequestQueue
+                val que: RequestQueue
 
                 // ssl disabled for dev
                 if (BuildConfig.DEBUG) {
@@ -1073,7 +1084,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         opts.rejoinAfterMs = {tries -> tries * 500} // rejoin timer function
         opts.reconnectAfterMs = {tries -> tries * 500} // reconnect timer function
 
-        val baseUrl = if (com.google.android.exoplayer2.BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
+        val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_API_DEV } else { MainActivity.BASE_URL_API_PROD }
         val url = "wss${baseUrl.substring(5)}/socket"
         socket = Socket(url, opts)
         socket?.connect()
@@ -1106,7 +1117,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     private fun updateNotification() {
 //        Handler(Looper.getMainLooper()).post {
-            buildNotification(baseContext)
+        buildNotification(baseContext)
 //        }
     }
 
@@ -1124,26 +1135,22 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     private fun startNotification(build: Notification) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    startForeground(
-                        NOTIFICATION_ID,
-                        build,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                    )
-                } catch (e: ForegroundServiceStartNotAllowedException) {
-                    // nothing
-                }
-            } else {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
                 startForeground(
                     NOTIFICATION_ID,
                     build,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
                 )
+            } catch (e: ForegroundServiceStartNotAllowedException) {
+                // nothing
             }
         } else {
-            startForeground(NOTIFICATION_ID, build)
+            startForeground(
+                NOTIFICATION_ID,
+                build,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
         }
     }
 
@@ -1207,14 +1214,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                 if (playerIsPlaying) {
                     // Stop the service when the notification is swiped away
-/*                    val closeIntent = Intent(applicationContext, NotificationDismissedReceiver::class.java)
+                    /*                    val closeIntent = Intent(applicationContext, NotificationDismissedReceiver::class.java)
 
-                    setDeleteIntent(
-                        PendingIntent.getBroadcast(
-                            this@MediaPlaybackService,
-                            NOTIFICATION_ID, closeIntent, 0
-                        )
-                    )*/
+                                        setDeleteIntent(
+                                            PendingIntent.getBroadcast(
+                                                this@MediaPlaybackService,
+                                                NOTIFICATION_ID, closeIntent, 0
+                                            )
+                                        )*/
                     setOngoing(true)
 
                     // Add a pause button
@@ -1275,14 +1282,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                             .setShowActionsInCompactView(0))
                 }
 
-                    // Add a cancel button
-/*                        .setShowCancelButton(true)
-                        .setCancelButtonIntent(
-                            MediaButtonReceiver.buildMediaButtonPendingIntent(
-                                context,
-                                PlaybackStateCompat.ACTION_STOP
-                            )
-                        )*/
+                // Add a cancel button
+                /*                        .setShowCancelButton(true)
+                                        .setCancelButtonIntent(
+                                            MediaButtonReceiver.buildMediaButtonPendingIntent(
+                                                context,
+                                                PlaybackStateCompat.ACTION_STOP
+                                            )
+                                        )*/
             }
 
             if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) != null) {
@@ -1303,22 +1310,30 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
                         // create a notification without the image first in case of exception once image downloaded
                         // not ideal but necessary until refactor
-                        builder.setLargeIcon(null)
+                        // builder.setLargeIcon(null)
                         startNotification(builder.build())
 
                         loadImageTask(builder, playerIsPlaying, imageUrl)
                     }
 
                     if (!playerIsPlaying) {
-                        stopForeground(false)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            stopForeground(Service.STOP_FOREGROUND_LEGACY)
+                        } else {
+                            stopForeground(false)
+                        }
                     }
                 }
             } else {
                 // Display the notification and place the service in the foreground
-                builder.setLargeIcon(null)
+                // builder.setLargeIcon(null)
                 startNotification(builder.build())
                 if (!playerIsPlaying) {
-                    stopForeground(false)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        stopForeground(Service.STOP_FOREGROUND_LEGACY)
+                    } else {
+                        stopForeground(false)
+                    }
                 }
             }
         }
@@ -1364,19 +1379,27 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         startNotification(builder.build())
 
                         /* if (!isPlaying) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            stopForeground(Service.STOP_FOREGROUND_LEGACY)
+                        } else {
                             stopForeground(false)
+                        }
                         } */
                     }
                 }
             } catch (e: IOException) {
 //                e.printStackTrace()
-/*                if (builder != null) {
-                    startNotification(builder.build())
+                /*                if (builder != null) {
+                                    startNotification(builder.build())
 
-                    if (!isPlaying) {
-                        stopForeground(false)
-                    }
-                } */
+                                    if (!isPlaying) {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            stopForeground(Service.STOP_FOREGROUND_LEGACY)
+                                        } else {
+                                            stopForeground(false)
+                                        }
+                                    }
+                                } */
 
                 image = null
                 bitmap = null
