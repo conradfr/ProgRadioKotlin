@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "io.programmes_radio.www.progradio"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "io.programmes_radio.www.progradio"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 42
         versionName = "2.74"
 

@@ -217,7 +217,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(mWebView) { _, windowInsets ->
+        ViewCompat.setOnApplyWindowInsetsListener(mWebView!!) { _, windowInsets ->
             // Retrieve insets as raw pixels
             val safeDrawingInsets = windowInsets.getInsets(
                 systemBars() or displayCutout() or ime()
