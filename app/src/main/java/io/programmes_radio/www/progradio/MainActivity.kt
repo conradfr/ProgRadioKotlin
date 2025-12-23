@@ -18,14 +18,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
 import androidx.core.util.TypedValueCompat.pxToDp
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat.Type.displayCutout
 import androidx.core.view.WindowInsetsCompat.Type.ime
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
-import androidx.core.view.ViewCompat;
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -268,6 +268,7 @@ class MainActivity : ComponentActivity() {
 
         mWebView?.restoreState(savedInstanceState) // Restore WebView state
         jsInterface?.reconnect()
+        jsInterface?.getstate()
     }
 
     override fun onStart() {
@@ -276,6 +277,7 @@ class MainActivity : ComponentActivity() {
             EventBus.getDefault().register(this)
         }
         jsInterface?.reconnect() // Optional: Reconnect media session if needed
+        jsInterface?.getstate()
     }
 
     override fun onPause() {

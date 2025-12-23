@@ -13,8 +13,8 @@ android {
         applicationId = "io.programmes_radio.www.progradio"
         minSdk = 29
         targetSdk = 35
-        versionCode = 41
-        versionName = "2.73"
+        versionCode = 42
+        versionName = "2.74"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
