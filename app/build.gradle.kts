@@ -1,20 +1,19 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     kotlin("plugin.serialization") version "2.0.21"
 }
 
 android {
     namespace = "io.programmes_radio.www.progradio"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.programmes_radio.www.progradio"
         minSdk = 29
-        targetSdk = 36
-        versionCode = 42
-        versionName = "2.74"
+        targetSdk = 37
+        versionCode = 43
+        versionName = "2.75"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -31,9 +30,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
     buildFeatures {
         compose = true

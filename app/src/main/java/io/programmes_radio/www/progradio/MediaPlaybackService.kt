@@ -1,7 +1,12 @@
 package io.programmes_radio.www.progradio
 
 // import android.util.Log
-import android.app.*
+import android.app.ForegroundServiceStartNotAllowedException
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,14 +14,18 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY
 import android.media.AudioManager.OnAudioFocusChangeListener
 import android.media.session.PlaybackState
-import android.media.AudioAttributes
 import android.net.Uri
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -25,9 +34,12 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
-import androidx.media3.session.MediaLibraryService
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import ch.kuon.phoenix.Socket
 import com.android.volley.DefaultRetryPolicy
 import com.android.volley.Request
@@ -35,10 +47,6 @@ import com.android.volley.RequestQueue
 import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.common.Player
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
 import com.google.android.gms.analytics.Tracker
 import kotlinx.coroutines.launch
@@ -56,7 +64,11 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.concurrent.Executors
-import javax.net.ssl.*
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.timer
 
 // private const val MY_MEDIA_ROOT_ID = "media_root_id"
@@ -292,6 +304,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                         updateNotification()
                     } catch (e: Exception) {
                         // handler
+                        android.util.Log.e("RadioAddict", "setList decode failed: $e")
                     }
                 } else {
                     radioCollection = null;
@@ -1293,9 +1306,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             }
 
             if (mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI) != null) {
-                val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
                 val bitmapUrl = mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ART_URI)
-                val imageUrl = baseUrl + bitmapUrl
+                val imageUrl = if (bitmapUrl != null && bitmapUrl.startsWith("http")) bitmapUrl else {
+                    val baseUrl = if (BuildConfig.DEBUG) { MainActivity.BASE_URL_DEV } else { MainActivity.BASE_URL_PROD }
+                    baseUrl + bitmapUrl
+                }
 
                 // Trying to avoid exception when updating the notification when stopped by an external event
                 // Because loading the picture like the current way we get a ForegroundServiceStartNotAllowedException
