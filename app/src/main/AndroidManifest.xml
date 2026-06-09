@@ -23,7 +23,7 @@
         android:launchMode="singleInstance"
         android:usesCleartextTraffic="true"
         android:alwaysRetainTaskState="true"
-        tools:targetApi="31" >
+        tools:targetApi="37" >
 
         <receiver android:name="androidx.media.session.MediaButtonReceiver"
             android:exported="true">

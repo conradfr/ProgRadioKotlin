@@ -44,7 +44,6 @@ import ch.kuon.phoenix.Socket
 import com.android.volley.DefaultRetryPolicy
 import com.android.volley.Request
 import com.android.volley.RequestQueue
-import com.android.volley.toolbox.HurlStack
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.Volley
 import com.google.android.gms.analytics.HitBuilders.EventBuilder
@@ -113,6 +112,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var channel: ch.kuon.phoenix.Channel? = null
     private var song: String? = null
 
+    private var requestQueue: RequestQueue? = null
+
     // ----------------------------------------------------------------------------------------------------
 
     inner class BecomingNoisyReceiver : BroadcastReceiver() {
@@ -123,7 +124,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
     }
 
-    override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // startForegroundService() was called by MediaButtonReceiver; must call
+        // startForeground() within 5 s regardless of what the callback does.
+        startNotification(buildMinimalNotification())
         MediaButtonReceiver.handleIntent(mediaSession, intent)
         return super.onStartCommand(intent, flags, startId)
     }
@@ -133,6 +137,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
         val application: ProgRadioApplication = applicationContext as ProgRadioApplication
         mTracker = application.getDefaultTracker()
+
+        requestQueue = Volley.newRequestQueue(applicationContext)
 
         createNotificationChannel()
 
@@ -209,6 +215,8 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         if (socket != null) {
             socket!!.disconnect()
         }
+        requestQueue?.stop()
+        requestQueue = null
         mediaSession?.release()
     }
 
@@ -968,25 +976,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     }
                 }
 
-                val que: RequestQueue
-
-                // ssl disabled for dev
-                if (BuildConfig.DEBUG) {
-                    que = Volley.newRequestQueue(baseContext, object : HurlStack() {
-                        @Throws(IOException::class)
-                        override fun createConnection(url: URL): HttpURLConnection {
-                            val connection =
-                                (URL(mURL).openConnection() as HttpsURLConnection).apply {
-                                    sslSocketFactory = createSocketFactory(listOf("TLSv1.2"))
-                                    hostnameVerifier = HostnameVerifier { _, _ -> true }
-                                    readTimeout = 5_000
-                                }
-                            return connection
-                        }
-                    })
-                } else {
-                    que = Volley.newRequestQueue(baseContext)
-                }
+                val que = requestQueue ?: return@launch
 
                 val method = if (listeningSessionId != null) Request.Method.PUT else Request.Method.POST
 
@@ -1127,6 +1117,20 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     // ----------------------------------------------------------------------------------------------------
+
+    private fun buildMinimalNotification(): Notification {
+        val controller = mediaSession?.controller
+        val meta = controller?.metadata
+        val title = meta?.getString(MediaMetadataCompat.METADATA_KEY_TITLE)
+            ?: getString(R.string.app_name)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_brand_logo)
+            .setContentTitle(title)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
+            .setStyle(MediaStyle().setMediaSession(mediaSession?.sessionToken))
+            .build()
+    }
 
     private fun updateNotification() {
 //        Handler(Looper.getMainLooper()).post {
