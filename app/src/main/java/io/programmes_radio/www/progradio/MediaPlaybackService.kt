@@ -96,6 +96,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private var player: ExoPlayer? = null
     private var playerIsPlaying = false
 
+    // Auto-reconnect handling for live streams dropping on a network hiccup
+    private val reconnectHandler = Handler(Looper.getMainLooper())
+    private var reconnectAttempts = 0
+    private val maxReconnectAttempts = 8
+
     private lateinit var audioFocusRequest: AudioFocusRequest
 
     private var listeningSessionStart: ZonedDateTime? = null
@@ -168,6 +173,10 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 false
             )
 
+            // Hold a partial wake lock + wifi lock while playing so the stream
+            // is not cut when the device enters Doze / the screen is off.
+            player?.setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)
+
             player?.playWhenReady = true
         }
 
@@ -205,6 +214,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
     override fun onDestroy() {
         super.onDestroy()
+        reconnectHandler.removeCallbacksAndMessages(null)
 //        unregisterReceiver(myNoisyAudioStreamReceiver)
         if (channel != null) {
             channel!!.leave()
@@ -679,6 +689,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 
         override fun onPause() {
+            reconnectAttempts = 0
+            reconnectHandler.removeCallbacksAndMessages(null)
+
             if (playerIsPlaying == true) {
 //               val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                 // Update metadata and state
@@ -790,6 +803,9 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         }
 
         override fun onStop() {
+            reconnectAttempts = 0
+            reconnectHandler.removeCallbacksAndMessages(null)
+
             if (playerIsPlaying) {
                 Handler(Looper.getMainLooper()).post {
                     stopListeningSession(
@@ -868,6 +884,12 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             playerIsPlaying = isPlaying
 
+            if (isPlaying) {
+                // Successfully (re)started: clear any pending reconnect attempts
+                reconnectAttempts = 0
+                reconnectHandler.removeCallbacksAndMessages(null)
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 // Android 13 uses playbackState for notification play/pause icon&action
                 val newPlayBackState = when (isPlaying) {
@@ -893,6 +915,29 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
 
         override fun onPlayerError(error: PlaybackException) {
             playerIsPlaying = false
+
+            // Live streams frequently drop on a transient network glitch (e.g. when the
+            // device wakes from Doze). Try to reconnect a few times before giving up.
+            if (mediaSession?.isActive == true && reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++
+                val delayMs = (1000L * reconnectAttempts).coerceAtMost(8000L)
+                reconnectHandler.removeCallbacksAndMessages(null)
+                reconnectHandler.postDelayed({
+                    player?.prepare()
+                    player?.play()
+                }, delayMs)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    stateBuilder = buildPlayBackState(PlaybackState.STATE_BUFFERING)
+                    mediaSession?.setPlaybackState(stateBuilder.build())
+                }
+                updateNotification()
+                return
+            }
+
+            // Out of retries: stop and report the error.
+            reconnectAttempts = 0
+            reconnectHandler.removeCallbacksAndMessages(null)
 
             this@MediaPlaybackService.stopListeningSession(
                 mediaSession?.controller?.metadata?.getString(
