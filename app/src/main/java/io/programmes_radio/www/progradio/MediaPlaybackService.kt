@@ -93,6 +93,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     private lateinit var afChangeListener: OnAudioFocusChangeListener
     private lateinit var playbackStateListener: Player.Listener
     private val myNoisyAudioStreamReceiver = BecomingNoisyReceiver()
+    private var isNoisyReceiverRegistered = false
     private var player: ExoPlayer? = null
     private var playerIsPlaying = false
 
@@ -210,6 +211,24 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                                         )*/
                 }
             }
+    }
+
+    private fun registerNoisyReceiver() {
+        if (!isNoisyReceiverRegistered) {
+            registerReceiver(myNoisyAudioStreamReceiver, intentFilter)
+            isNoisyReceiverRegistered = true
+        }
+    }
+
+    private fun unregisterNoisyReceiver() {
+        if (isNoisyReceiverRegistered) {
+            try {
+                unregisterReceiver(myNoisyAudioStreamReceiver)
+            } catch (e: IllegalArgumentException) {
+                // receiver was not registered, ignore
+            }
+            isNoisyReceiverRegistered = false
+        }
     }
 
     override fun onDestroy() {
@@ -570,7 +589,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 )
 
                 // Register BECOME_NOISY BroadcastReceiver
-                registerReceiver(myNoisyAudioStreamReceiver, intentFilter)
+                registerNoisyReceiver()
 
                 val mediaItem: MediaItem = MediaItem.fromUri(uri.toString())
                 player?.setMediaItem(mediaItem)
@@ -631,7 +650,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                     mediaSession?.isActive = true
 
                     // Register BECOME_NOISY BroadcastReceiver
-                    registerReceiver(myNoisyAudioStreamReceiver, intentFilter)
+                    registerNoisyReceiver()
 
                     val uri = mediaSession?.controller?.metadata?.getString(
                         MediaMetadataCompat.METADATA_KEY_MEDIA_URI
@@ -730,7 +749,7 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
                 player?.pause()
 
                 // unregister BECOME_NOISY BroadcastReceiver
-                unregisterReceiver(myNoisyAudioStreamReceiver)
+                unregisterNoisyReceiver()
 
                 // Take the service out of the foreground, retain the notification
 //               updateNotification()
@@ -817,9 +836,11 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
             }
 
             val am = baseContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            // Abandon audio focus
-            am.abandonAudioFocusRequest(audioFocusRequest)
-            unregisterReceiver(myNoisyAudioStreamReceiver)
+            // Abandon audio focus (only if it was ever requested)
+            if (this@MediaPlaybackService::audioFocusRequest.isInitialized) {
+                am.abandonAudioFocusRequest(audioFocusRequest)
+            }
+            unregisterNoisyReceiver()
             // Stop the service
             stopSelf()
             // Set the session inactive  (and update metadata and state)
