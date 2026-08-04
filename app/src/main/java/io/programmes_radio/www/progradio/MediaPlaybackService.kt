@@ -131,6 +131,14 @@ class MediaPlaybackService : MediaBrowserServiceCompat() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // A null intent means the system restarted the service after the process was
+        // killed: nothing is playing and there is no metadata to resume from, so don't
+        // go foreground with an empty notification, just shut down again.
+        if (intent == null) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
         // startForegroundService() was called by MediaButtonReceiver; must call
         // startForeground() within 5 s regardless of what the callback does.
         startNotification(buildMinimalNotification())

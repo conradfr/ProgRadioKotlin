@@ -31,8 +31,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val BASE_URL_PROD = "https://www.programmes-radio.com"
         const val BASE_URL_API_PROD = "https://api.programmes-radio.com"
-        const val BASE_URL_DEV = "https://progradio-www-dev.caprover3.funkybits.fr/"
-        const val BASE_URL_API_DEV = "https://progradio-api-dev.caprover3.funkybits.fr"
+        const val BASE_URL_DEV = "https://www.programmes-radio.com"
+        const val BASE_URL_API_DEV = "https://api.programmes-radio.com"
 //        const val BASE_URL_DEV = "https://7b995044ada8.ngrok-free.app"
 //        const val BASE_URL_API_DEV = "https://fb92476b9c34.ngrok-free.app:4001"
     }
